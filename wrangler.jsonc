@@ -1,0 +1,10 @@
+{
+  "name": "af-d1-probe-20261019",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-19",
+  "workers_dev": true,
+  "routes": [],
+  "d1_databases": [
+    {"binding": "DB", "database_name": "app-fitness-d1-test", "database_id": "dd944ef9-d5e9-40dc-b034-5e156f71ef51"}
+  ]
+}

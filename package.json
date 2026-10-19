@@ -1,0 +1,8 @@
+{
+  "name": "app-fitness-d1-isolated-probe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {"preflight":"node scripts/preflight.mjs", "probe":"node scripts/probe.mjs"},
+  "devDependencies": {"wrangler":"4.45.0"}
+}

@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const cfg=JSON.parse(readFileSync('wrangler.jsonc','utf8'));
+assert.equal(cfg.name,'af-d1-probe-20261019');
+assert.equal(cfg.workers_dev,true);
+assert.deepEqual(cfg.routes,[]);
+assert.equal(cfg.d1_databases.length,1);
+assert.deepEqual(cfg.d1_databases[0],{binding:'DB',database_name:'app-fitness-d1-test',database_id:'dd944ef9-d5e9-40dc-b034-5e156f71ef51'});
+assert.equal(Object.keys(cfg).sort().join(','),'compatibility_date,d1_databases,main,name,routes,workers_dev');
+console.log('Local static config preflight PASS. Remote identity/existing worker/permissions checks are still required before deploying.');

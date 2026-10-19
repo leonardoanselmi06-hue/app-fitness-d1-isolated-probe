@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+const base=process.env.PROBE_URL;
+const key=process.env.PROBE_KEY;
+if(!base || !key) throw new Error('Missing probe environment');
+const call=async(path,data,keyOverride=key)=>{
+ const res=await fetch(`${base}${path}`,{method:'POST',headers:{authorization:`Bearer ${keyOverride}`,'content-type':'application/json'},body:JSON.stringify(data)});
+ return {status:res.status,data:res.status===204?null:await res.json()};
+};
+const prefix=randomUUID().replaceAll('-','').slice(0,22);
+const op=s=>`${prefix}_${s}`;
+const results=[];
+const test=async(name,fn)=>{await fn(); results.push({name,status:'PASS'});console.log(`PASS ${name}`);};
+await test('deny missing or invalid token',async()=>{assert.equal((await call('/check',{operation_id:op('auth')},'invalid-key')).status,403)});
+await test('rollback atomic batch',async()=>{const r=await call('/batch-rollback',{operation_id:op('roll')});assert.equal(r.status,200);assert.equal(r.data.ok,true);assert.equal(r.data.before,0);assert.equal(r.data.after,0)});
+await test('idempotent replay',async()=>{const id=op('idem');const a=await call('/apply',{operation_id:id,payload:'A'});const b=await call('/apply',{operation_id:id,payload:'A'});assert.equal(a.status,200);assert.equal(b.status,200);assert.equal(a.data.digest,b.data.digest);assert.equal((await call('/apply',{operation_id:id,payload:'B'})).status,409)});
+await test('synthetic lost receipt then status and retry',async()=>{const id=op('ack');const a=await call('/ack-lost',{operation_id:id,payload:'ACK'});assert.equal(a.status,204);const b=await call('/read',{operation_id:id});assert.equal(b.data.exists,true);const c=await call('/apply',{operation_id:id,payload:'ACK'});assert.equal(c.status,200);assert.equal(c.data.version,1)});
+await test('concurrent duplicate HTTP writes',async()=>{const id=op('dup');const xs=await Promise.all(Array.from({length:8},()=>call('/apply',{operation_id:id,payload:'same'})));assert(xs.every(x=>x.status===200));const r=await call('/read',{operation_id:id});assert.equal(r.data.version,1)});
+await test('concurrent CAS',async()=>{const id=op('cas');assert.equal((await call('/apply',{operation_id:id,payload:'v1'})).status,200);const xs=await Promise.all([call('/cas',{operation_id:id,payload:'v2A',expected_version:1}),call('/cas',{operation_id:id,payload:'v2B',expected_version:1})]);assert.deepEqual(xs.map(x=>x.status).sort(),[200,409]);assert.equal((await call('/read',{operation_id:id})).data.version,2)});
+console.log(JSON.stringify({results,stamp:new Date().toISOString()},null,2));
