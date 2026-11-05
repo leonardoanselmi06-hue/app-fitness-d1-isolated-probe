@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
       - uses: gradle/actions/setup-gradle@v4
-        with: { gradle-version: '8.9' }
+        with: { gradle-version: '8.11.1' }
       - name: Compila (release firmata con chiave fissa)
         run: gradle -p android assembleRelease --no-daemon --stacktrace
       - name: Pubblica release
