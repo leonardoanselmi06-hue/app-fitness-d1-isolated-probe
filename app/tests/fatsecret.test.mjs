@@ -71,3 +71,10 @@ test('rotte: connect con cookie, callback con anti-CSRF, status', async () => {
   const off = createApp({ db: newDb(), auth: { authenticate: async () => ({ subject: 'owner' }) }, jobs: { fatsecret: fatsecretRoutes({ db: newDb(), env: {} }) } });
   assert.equal((await off(new Request('https://app.test/v1/fatsecret/connect'))).status, 503);
 });
+
+test('firma: vettore di riferimento della documentazione Twitter/X (HMAC-SHA1) e credenziali con spazi/a capo', async () => {
+  const r = await signedRequest({ method: 'POST', url: 'https://api.twitter.com/1.1/statuses/update.json', params: { status: 'Hello Ladies + Gentlemen, a signed OAuth request!', include_entities: 'true' }, consumerKey: 'xvz1evFS4wEEPTGEFPHBog', consumerSecret: 'kAcSOqF21Fu85e7zjz7ZN2U4ZRhfV3WpwPAoE3Z7kBw', token: '370773112-GmHxMAgYyLbNEtIKZeRNFsMKPR9EyMZeS9weJAEb', tokenSecret: 'LswwdoUaIvS8ltyTt5jkRh4J50vUPVVHtR2YPi5kE', nonce: 'kYjzVBB8Y0ZFabxSWbWovY3uYSQ2pTgmZeNu2VS4cg', timestamp: 1318622958 });
+  assert.equal(decodeURIComponent(new URL(r.url).searchParams.get('oauth_signature')), 'hCtSmYh+iHYCEqBWrE7C7hYmtUk=');
+  const tk = new FatSecretTokens({ db: newDb(), consumerKey: ' ck\n', consumerSecret: 'cs\n' });
+  assert.equal(tk.consumerKey, 'ck'); assert.equal(tk.consumerSecret, 'cs');
+});
