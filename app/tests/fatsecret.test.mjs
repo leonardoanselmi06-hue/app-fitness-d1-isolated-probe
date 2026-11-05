@@ -47,7 +47,7 @@ test('connessione: request token -> consenso -> access token, cifrati; il secret
   await tk.finish('RT', 'V');
   assert.deepEqual(await tk.status(), { connected: true, updated_at: new Date(T0).toISOString() });
   const rows = (await db.prepare('SELECT provider, sealed FROM oauth_tokens').all()).results;
-  assert.deepEqual(rows.map(r => r.provider), ['fatsecret']);   assert.ok(!rows[0].sealed.includes('AT'));
+  assert.deepEqual(rows.map(r => r.provider), ['fatsecret']);   assert.ok(!rows[0].sealed.includes('"token"') && !rows[0].sealed.includes('oauth_token')); // cifrato: nessun campo in chiaro (il confronto con 'AT' era casuale: il base64 può contenerlo)
   await assert.rejects(tk.finish('RT', 'V'), e => e.code === 'fatsecret_request_expired'); // riuso impossibile
 });
 test('sfida Cloudflare riconosciuta e segnalata come causa distinta; senza credenziali 503', async () => {
