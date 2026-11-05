@@ -58,8 +58,8 @@ export function normalizeSession(s, detail = null) {
       exercises: (s.exercises ?? []).map(e => ({ id: str(e.identifier?.id), sport: str(e.sport?.id), duration_ms: num(e.durationMillis), calories: num(e.calories) })),
       // DEC-STORAGE-004: la serie al secondo sta nel RAW su Drive; qui solo riferimento, hash e riepilogo
       hr_detail: detail
-        ? { status: detail.status, raw_ref: detail.raw_ref ?? null, raw_sha256: detail.raw_sha256 ?? null, series: d.series, zones: d.zones, zone_unit: 'unverified' }
-        : { status: 'pending', raw_ref: null, raw_sha256: null, series: [], zones: [], zone_unit: 'unverified' },
+        ? { status: detail.status, raw_ref: detail.raw_ref ?? null, raw_sha256: detail.raw_sha256 ?? null, series: d.series, zones: d.zones, zone_unit: 'ms' }
+        : { status: 'pending', raw_ref: null, raw_sha256: null, series: [], zones: [], zone_unit: 'ms' },
     },
   };
 }
