@@ -1,0 +1,25 @@
+name: Drive probe (manuale, file sintetico)
+# SOLO workflow_dispatch. Scrive UN file sintetico nella cartella AppFitness-RAW del tuo Drive e lo rilegge. Nessun dato personale.
+on: workflow_dispatch
+permissions:
+  contents: read
+concurrency:
+  group: drive-probe
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults: { run: { working-directory: app } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Test locali
+        run: npm test
+      - name: Prova su Drive reale (file sintetico)
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: node scripts/drive-probe.mjs
