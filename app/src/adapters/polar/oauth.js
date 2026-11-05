@@ -32,9 +32,9 @@ async function tokenRequest({ clientId, clientSecret, fetchFn, body }) {
   try { res = await fetchFn(TOKEN_URL, { method: 'POST', headers: { authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`, 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' }, body: new URLSearchParams(body).toString() }); }
   catch { throw new AppError(502, 'polar_unreachable'); }
   if (res.status === 400 || res.status === 401) throw new AppError(502, 'polar_reauth_required');
-  if (!res.ok) throw new AppError(502, 'polar_error');
+  if (!res.ok) throw new AppError(502, 'polar_error', { step: 'token', upstream_status: res.status });
   const j = await res.json();
-  if (!j.access_token) throw new AppError(502, 'polar_error');
+  if (!j.access_token) throw new AppError(502, 'polar_error', { step: 'token', upstream_status: res.status, reason: 'no_access_token', keys: Object.keys(j) });
   return j;
 }
 
