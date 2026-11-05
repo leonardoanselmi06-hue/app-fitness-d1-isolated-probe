@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "app.fitness.collector"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         applicationId = "app.fitness.collector"
         minSdk = 28
