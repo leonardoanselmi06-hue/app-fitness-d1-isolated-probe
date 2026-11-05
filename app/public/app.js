@@ -44,5 +44,16 @@ $('syncPolar').addEventListener('click', async () => {
     else { out.textContent = `Polar: ${d.listed} sessioni nella finestra, ${d.new_sessions} nuove/aggiornate, ${d.detailed} con battito, ${d.remaining} da completare (ripremi il pulsante).`; await refresh(); }
   } catch { out.textContent = 'API non raggiungibile.'; } finally { b.disabled = false; }
 });
+$('syncFatSecret').addEventListener('click', async () => {
+  const b = $('syncFatSecret'), out = $('syncResult'); b.disabled = true; out.textContent = 'Sincronizzazione FatSecret in corso…';
+  try {
+    const r = await fetch('/v1/sync/fatsecret', { method: 'POST', credentials: 'same-origin' });
+    if (r.status === 401 || r.status === 403) { out.textContent = 'Accesso richiesto.'; return; }
+    const d = await r.json();
+    if (!d.ran) out.textContent = d.reason === 'disabled' ? 'Sync FatSecret non ancora attivo.' : `Non eseguito (${d.reason ?? r.status}).`;
+    else if (!d.ok) out.textContent = `Sync FatSecret non riuscito: ${d.reason}${d.upstream_status ? ` (${d.upstream_status})` : ''}`;
+    else { out.textContent = `FatSecret: ${d.days_processed} giorni aggiornati (${d.entries} voci), ${d.remaining} da completare${d.remaining ? ' (ripremi il pulsante)' : ''}.`; await refresh(); }
+  } catch { out.textContent = 'API non raggiungibile.'; } finally { b.disabled = false; }
+});
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 refresh();

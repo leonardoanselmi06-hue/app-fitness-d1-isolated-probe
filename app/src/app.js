@@ -27,6 +27,10 @@ export function createApp({ db, auth, assets, jobs = {} }) {
           if (!jobs.polarSync) throw new AppError(404, 'not_found');
           return json(200, await jobs.polarSync());
         }
+        if (url.pathname === '/v1/sync/fatsecret' && request.method === 'POST') {
+          if (!jobs.fatsecretSync) throw new AppError(404, 'not_found');
+          return json(200, await jobs.fatsecretSync());
+        }
         if (request.method !== 'GET') throw new AppError(405, 'method_not_allowed');
         const m = url.pathname.match(/^\/v1\/(canonical|operations)\/([A-Za-z0-9_.:-]{1,120})$/);
         if (m?.[1] === 'canonical') {
