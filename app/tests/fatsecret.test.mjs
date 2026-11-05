@@ -12,8 +12,9 @@ const j = b => txt(JSON.stringify(b));
 function fake({ challenge = false } = {}) {
   const log = [];
   const fetchFn = async (url, init = {}) => {
-    const u = new URL(url); const auth = init.headers?.authorization ?? ''; log.push(`${init.method || 'GET'} ${u.host}${u.pathname}`);
-    assert.match(auth, /^OAuth /); assert.match(auth, /oauth_signature="/); assert.equal(u.searchParams.get('oauth_signature'), null); // firma solo nell'header
+    const u = new URL(url); log.push(`${init.method || 'GET'} ${u.host}${u.pathname}`);
+    assert.equal(init.headers?.authorization, undefined); assert.ok(u.searchParams.get('oauth_signature')); // parametri OAuth nella query
+    const auth = [...u.searchParams].map(([k, v]) => `${k}="${v}"`).join(' ');
     if (u.pathname === '/oauth/request_token') return challenge ? txt('x', 403, { 'cf-mitigated': 'challenge' }) : (assert.match(auth, /oauth_callback=/), txt('oauth_token=RT&oauth_token_secret=RS&oauth_callback_confirmed=true'));
     if (u.pathname === '/oauth/access_token') return auth.includes('oauth_verifier="V"') && auth.includes('oauth_token="RT"') ? txt('oauth_token=AT&oauth_token_secret=AS') : txt('x', 401);
     if (!auth.includes('oauth_token="AT"')) return txt('x', 401);
@@ -30,12 +31,12 @@ test('firma OAuth 1.0: vettore RFC 5849 (esempio ufficiale Twitter-like con valo
   // Vettore noto (RFC 5849 §3.4.1.1 / esempio documentazione): stessa base string -> stessa firma
   const a = await signedRequest({ method: 'GET', url: 'https://x.test/p', params: { b: '2 3', a: "x'y" }, consumerKey: 'ck', consumerSecret: 'cs', token: 't', tokenSecret: 'ts', nonce: 'n', timestamp: 1 });
   const b = await signedRequest({ method: 'GET', url: 'https://x.test/p', params: { a: "x'y", b: '2 3' }, consumerKey: 'ck', consumerSecret: 'cs', token: 't', tokenSecret: 'ts', nonce: 'n', timestamp: 1 });
-  assert.equal(a.headers.authorization, b.headers.authorization); // l'ordine dei parametri non conta
+  assert.equal(a.url.split('oauth_signature=')[1], b.url.split('oauth_signature=')[1]); // l'ordine dei parametri non conta
   const c = await signedRequest({ method: 'GET', url: 'https://x.test/p', params: { a: "x'y", b: '2 3' }, consumerKey: 'ck', consumerSecret: 'cs', token: 't', tokenSecret: 'OTHER', nonce: 'n', timestamp: 1 });
-  assert.notEqual(a.headers.authorization, c.headers.authorization);
+  assert.notEqual(a.url.split('oauth_signature=')[1], c.url.split('oauth_signature=')[1]);
   // Esempio RFC 5849 §3.4.1: base string e firma HMAC-SHA1 calcolati indipendentemente
   const ref = await signedRequest({ method: 'POST', url: 'http://example.com/request', params: { b5: '=%3D', a3: 'a', 'c@': '', a2: 'r b', c2: '' }, consumerKey: '9djdj82h48djs9d2', consumerSecret: 'j49sk3j29djd', token: 'kkk9d7dh3k39sjv7', tokenSecret: 'dh893hdasih9', extraOauth: { oauth_nonce: '7d8f3e4a' }, nonce: '7d8f3e4a', timestamp: 137131201 });
-  assert.match(ref.headers.authorization, /oauth_signature="[A-Za-z0-9%]+"/);
+  assert.match(ref.url, /oauth_signature=[A-Za-z0-9%]+/);
 });
 test('connessione: request token -> consenso -> access token, cifrati; il secret temporaneo viene consumato', async () => {
   const { db, tk } = mk();
