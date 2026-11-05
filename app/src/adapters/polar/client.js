@@ -13,7 +13,7 @@ export function polarGet({ tokens, fetchFn = (...a) => fetch(...a), sleep = ms =
       catch (e) { if (e instanceof AppError) throw e; if (attempt >= retries) throw new AppError(502, 'polar_unreachable'); await sleep(500 * 2 ** attempt); continue; }
       if ((res.status === 429 || res.status >= 500) && attempt < retries) { await sleep(res.status === 429 ? 5000 * (attempt + 1) : 500 * 2 ** attempt); continue; }
       if (res.status === 401 || res.status === 403) throw new AppError(502, 'polar_reauth_required');
-      if (!res.ok) throw new AppError(502, 'polar_error');
+      if (!res.ok) throw new AppError(502, 'polar_error', { step: 'data', upstream_status: res.status, path });
       return res.json();
     }
   };
