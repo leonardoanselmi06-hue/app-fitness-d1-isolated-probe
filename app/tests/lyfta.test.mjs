@@ -77,7 +77,7 @@ test('sync parziale o con errore NON cancella nulla', async () => {
 });
 
 test('integrità paginazione: totale dichiarato non coerente => incompleto', async () => {
-  const pager = makePager(30, 20); const lying = async p => ({ ...(await pager(p)), pagination: { page: p, total: 31, total_pages: 2 } });
+  const pager = makePager(30, 20); const lying = async p => ({ ...(await pager(p)), total_records: 31 });
   const r = await pullAllWorkouts(lying); assert.equal(r.complete, false); assert.equal(r.reason, 'count_mismatch');
   const nopag = async () => ({ workouts: [workout(1)] }); assert.equal((await pullAllWorkouts(nopag)).reason, 'pagination_unknown');
 });
