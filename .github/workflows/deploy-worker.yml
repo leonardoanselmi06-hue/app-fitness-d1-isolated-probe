@@ -1,0 +1,97 @@
+name: Deploy Worker (manuale)
+# SOLO workflow_dispatch. Crea (se manca) il database D1 DEDICATO `app-fitness-d1` (diverso da quello di test), applica le migrazioni,
+# deploya il Worker `app-fitness` e imposta i secret presenti nel repo. Il sync Lyfta resta SPENTO: LYFTA_SYNC_ENABLED non viene mai impostato qui.
+on: workflow_dispatch
+permissions:
+  contents: read
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults: { run: { working-directory: app } }
+    env:
+      DB_NAME: app-fitness-d1
+      WORKER_NAME: app-fitness
+      WRANGLER_SEND_METRICS: "false"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Test locali
+        run: npm test
+      - name: Installa wrangler (versione fissata, senza segreti nell'ambiente)
+        run: npm install --no-save wrangler@4.45.0
+
+      - name: Database D1 dedicato (crea se manca) e configurazione generata
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          base="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          api() { curl -sS --max-time 30 -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H 'content-type: application/json' "$@"; }
+          [ "${DB_NAME}" != "app-fitness-d1-test" ] || { echo "::error::Il database di produzione non può essere quello di test"; exit 1; }
+          id=$(api "${base}/d1/database?name=${DB_NAME}" | jq -r --arg n "${DB_NAME}" '.result[]? | select(.name==$n) | .uuid' | head -1)
+          if [ -z "$id" ]; then
+            echo "Il database ${DB_NAME} non esiste: lo creo."
+            id=$(api -X POST "${base}/d1/database" -d "{\"name\":\"${DB_NAME}\"}" | jq -r '.result.uuid // empty')
+          fi
+          [ -n "$id" ] || { echo "::error::Impossibile trovare o creare il database ${DB_NAME} (il token ha il permesso D1 Edit?)"; exit 1; }
+          [ "$id" != "dd944ef9-d5e9-40dc-b034-5e156f71ef51" ] || { echo "::error::UUID del database di test: rifiutato"; exit 1; }
+          echo "Database ${DB_NAME} pronto."
+          cat > wrangler.generated.jsonc <<EOF
+          {
+            "name": "${WORKER_NAME}",
+            "main": "src/worker.js",
+            "compatibility_date": "2026-10-01",
+            "workers_dev": true,
+            "preview_urls": false,
+            "assets": { "directory": "./public", "binding": "ASSETS" },
+            "d1_databases": [ { "binding": "DB", "database_name": "${DB_NAME}", "database_id": "${id}", "migrations_dir": "migrations" } ],
+            "triggers": { "crons": ["17 4 * * *"] }
+          }
+          EOF
+
+      - name: Migrazioni sul database dedicato
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --no-install wrangler d1 migrations apply "${DB_NAME}" --remote -c wrangler.generated.jsonc
+
+      - name: Deploy del Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --no-install wrangler deploy -c wrangler.generated.jsonc
+
+      - name: Secret del Worker (solo quelli presenti nel repo)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ACCESS_TEAM_DOMAIN: ${{ secrets.ACCESS_TEAM_DOMAIN }}
+          ACCESS_AUD: ${{ secrets.ACCESS_AUD }}
+          OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
+          LYFTA_API_KEY: ${{ secrets.LYFTA_API_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+          for n in ACCESS_TEAM_DOMAIN ACCESS_AUD OWNER_EMAIL LYFTA_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_REFRESH_TOKEN; do
+            v="${!n:-}"
+            if [ -n "$v" ]; then printf '%s' "$v" | npx --no-install wrangler secret put "$n" -c wrangler.generated.jsonc >/dev/null && echo "impostato: $n"
+            else echo "assente nel repo (saltato): $n"; fi
+          done
+          echo "LYFTA_SYNC_ENABLED NON impostato: il sync Lyfta resta spento." | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Indirizzo del Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          sub=$(curl -sS --max-time 30 -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" | jq -r '.result.subdomain // empty')
+          echo "Worker: https://${WORKER_NAME}.${sub}.workers.dev (proteggerlo con Cloudflare Access prima di usarlo)" | tee -a "$GITHUB_STEP_SUMMARY"
