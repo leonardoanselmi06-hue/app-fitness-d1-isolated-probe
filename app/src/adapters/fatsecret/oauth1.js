@@ -18,7 +18,7 @@ export async function signedRequest({ method, url, params = {}, consumerKey, con
   const sig = btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign('HMAC', k, enc.encode(base)))));
   // Parametri OAuth nella query string (forma usata negli esempi FatSecret); nessun header Authorization.
   const qs = Object.entries({ ...params, ...oauth, oauth_signature: sig }).map(([a, v]) => `${pct(a)}=${pct(v)}`).join('&');
-  return { url: `${url}?${qs}`, headers: { accept: 'application/json' } };
+  return { url: `${url}?${qs}`, qs, headers: { accept: 'application/json' } };
 }
 
 const form = async res => Object.fromEntries(new URLSearchParams(await res.text()));
