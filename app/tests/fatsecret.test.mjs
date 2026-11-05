@@ -78,3 +78,10 @@ test('firma: vettore di riferimento della documentazione Twitter/X (HMAC-SHA1) e
   const tk = new FatSecretTokens({ db: newDb(), consumerKey: ' ck\n', consumerSecret: 'cs\n' });
   assert.equal(tk.consumerKey, 'ck'); assert.equal(tk.consumerSecret, 'cs');
 });
+
+test('autodiagnosi: riporta stato di ciascun controllo, mai segreti', async () => {
+  const { tk, f } = mk(); const { selfTest } = await import('../src/adapters/fatsecret/probe.js');
+  const out = await selfTest(tk, async (url, init) => (new URL(url).pathname.startsWith('/rest/') ? txt('{"error":{"code":8,"message":"Invalid signature"}}', 400) : f.fetchFn(url, init)));
+  assert.equal(out.api_2legged.status, 400); assert.equal(out.request_token_authentication_host.ok, true);
+  assert.ok(!JSON.stringify(out).includes('cs')); assert.equal(out.key_len, 2);
+});
