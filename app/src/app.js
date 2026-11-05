@@ -18,6 +18,7 @@ export function createApp({ db, auth, assets, jobs = {} }) {
       if (url.pathname.startsWith('/v1/')) {
         const { subject } = await auth.authenticate(request); // fail-closed
         if (url.pathname.startsWith('/v1/polar/')) { if (!jobs.polar) throw new AppError(404, 'not_found'); return await jobs.polar(request); }
+        if (url.pathname.startsWith('/v1/fatsecret/')) { if (!jobs.fatsecret) throw new AppError(404, 'not_found'); return await jobs.fatsecret(request); }
         if (url.pathname === '/v1/sync/lyfta' && request.method === 'POST') {
           if (!jobs.lyfta) throw new AppError(404, 'not_found');
           return json(200, await jobs.lyfta()); // sync server-side: il client non invia dati né scope_complete
