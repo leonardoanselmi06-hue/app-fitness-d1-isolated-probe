@@ -44,5 +44,18 @@ export async function runSyncE2E(env, runId, { rawStore } = {}) {
     const broken = async page => { if (page === 2) throw new Error('boom'); return p29(page); };
     const r = await run(broken); eq(r.complete, false, 'complete'); eq(r.receipt.deleted, 0, 'cancellati'); eq((await listCanonical(db, subject, 'training')).length, 29, 'record invariati');
   });
+  // Scala realistica (come il tuo storico: 311 workout, ~2000 esercizi, ~6200 serie) per verificare i limiti del Worker (tempo di calcolo, memoria, richieste).
+  await step('scala realistica: 311 workout / ~2000 esercizi / ~6200 serie', async () => {
+    const big = id => ({ id, title: `Sintetico scala ${runId} ${id}`, body_weight: 72.5, workout_perform_date: '2026-10-15 16:12:00', total_volume: 1200, totalLiftedWeight: 1200, user: { id: 1, name: 'sintetico' },
+      exercises: Array.from({ length: 6 + (id % 2) }, (_, e) => ({ exercise_id: String(100 + e), excercise_name: `Esercizio sintetico ${e}`, exercise_type: 'strength', exercise_image: 'https://example.test/' + 'x'.repeat(120), exercise_rest_time: 18,
+        sets: Array.from({ length: 3 + (e % 2) }, (_, k) => ({ id: String(id * 100 + e * 10 + k), weight: '60', reps: '8', rir: '2', duration: null, distance: null, set_type_id: String(k % 3), is_completed: true, record_type: null, record_level: null, record_value: null })) })) });
+    const bigPager = makePager(311, 100, id => big(id));
+    const sbj = `d1t-${runId}-scale`; const t0 = Date.now();
+    const r = await syncLyfta({ db, raw }, { subject: sbj, fetchPage: bigPager, request_id: crypto.randomUUID(), captured_at: new Date().toISOString() });
+    eq(r.ok, true, 'ok'); eq(r.complete, true, 'complete'); eq((await listCanonical(db, sbj, 'training')).length, 311, 'record canonici');
+    const again = await syncLyfta({ db, raw }, { subject: sbj, fetchPage: bigPager, request_id: crypto.randomUUID(), captured_at: new Date().toISOString() });
+    eq(again.receipt.replayed, true, 'replay');
+    return { ms_sync_e_replay: Date.now() - t0, bytes_raw: (await raw.get(r.receipt.artifact_ref)).byteLength };
+  });
   return { ok: results.every(r => r.status === 'PASS'), results };
 }
