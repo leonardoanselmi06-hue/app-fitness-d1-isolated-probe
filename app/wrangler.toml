@@ -1,0 +1,15 @@
+# Configurazione SOLO per ambiente di test/preview isolato. Nessun ambiente production definito.
+# I valori sensibili (ACCESS_*, OWNER_EMAIL) si impostano come secret/variabili nel dashboard o via CI: mai nel repo.
+name = "app-fitness-preview"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "app-fitness-d1-test"
+database_id = "dd944ef9-d5e9-40dc-b034-5e156f71ef51"   # D1 di TEST isolato (DEC-TEST-STORAGE-003/004). Non usare dati reali.
+migrations_dir = "migrations"

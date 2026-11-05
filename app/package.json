@@ -1,0 +1,12 @@
+{
+  "name": "app-fitness",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Fitness App — backend Cloudflare Worker + D1 (ledger idempotente), PWA mobile-first. Zero dipendenze runtime.",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --test"
+  },
+  "engines": { "node": ">=22.13.0" }
+}
