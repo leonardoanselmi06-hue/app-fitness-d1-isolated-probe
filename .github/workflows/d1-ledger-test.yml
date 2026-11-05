@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       phase:
-        description: "preflight = solo controlli (nessuna scrittura) | run = deploy temporaneo, test, pulizia"
+        description: "preflight = solo controlli | run = ledger su D1 reale | sync = sync Lyfta sintetico su D1 reale + Drive reale"
         type: choice
-        options: [preflight, run]
+        options: [preflight, run, sync]
         default: preflight
 
 permissions:
@@ -88,7 +88,7 @@ jobs:
 
       # ---------------------------------------------------------------- fase run ----
       - name: Deploy del Worker temporaneo (un solo binding D1 di test, nessuna route)
-        if: ${{ inputs.phase == 'run' }}
+        if: ${{ inputs.phase != 'preflight' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -98,25 +98,35 @@ jobs:
           npx --no-install wrangler deploy -c tests/d1-remote/wrangler.jsonc --name "${WORKER_NAME}"
 
       - name: Imposta la chiave temporanea del Worker (secret, mai nel repo né nei log)
-        if: ${{ inputs.phase == 'run' }}
+        if: ${{ inputs.phase != 'preflight' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GOOGLE_CLIENT_ID: ${{ inputs.phase == 'sync' && secrets.GOOGLE_CLIENT_ID || '' }}
+          GOOGLE_CLIENT_SECRET: ${{ inputs.phase == 'sync' && secrets.GOOGLE_CLIENT_SECRET || '' }}
+          GOOGLE_REFRESH_TOKEN: ${{ inputs.phase == 'sync' && secrets.GOOGLE_REFRESH_TOKEN || '' }}
         run: |
           set -euo pipefail
           key=$(openssl rand -hex 24)
           echo "::add-mask::${key}"
           echo "TEST_KEY=${key}" >> "$GITHUB_ENV"
           printf '%s' "${key}" | npx --no-install wrangler secret put TEST_KEY --name "${WORKER_NAME}" -c tests/d1-remote/wrangler.jsonc
+          if [ "${{ inputs.phase }}" = "sync" ]; then
+            for n in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_REFRESH_TOKEN; do
+              v="${!n:?Secret ${n} mancante nel repo}"
+              printf '%s' "$v" | npx --no-install wrangler secret put "$n" --name "${WORKER_NAME}" -c tests/d1-remote/wrangler.jsonc
+            done
+          fi
 
       - name: Esegui gli scenari del ledger su D1 reale
-        if: ${{ inputs.phase == 'run' }}
+        if: ${{ inputs.phase != 'preflight' }}
         run: |
           set -euo pipefail
-          url="https://${WORKER_NAME}.${WORKERS_SUBDOMAIN}.workers.dev/run"
+          path=/run; [ "${{ inputs.phase }}" = "sync" ] && path=/run-sync
+          url="https://${WORKER_NAME}.${WORKERS_SUBDOMAIN}.workers.dev${path}"
           code=000
           for i in $(seq 1 12); do
-            code=$(curl -sS -o result.json -w '%{http_code}' --max-time 90 -X POST "$url" \
+            code=$(curl -sS -o result.json -w '%{http_code}' --max-time 120 -X POST "$url" \
               -H "authorization: Bearer ${TEST_KEY}" -H 'content-type: application/json' \
               -d "{\"run_id\":\"${GITHUB_RUN_ID}\"}" || echo 000)
             case "$code" in 200|400|403|422|500) break;; esac
@@ -124,7 +134,7 @@ jobs:
           done
           [ "$code" = "200" ] || { echo "::error::Il Worker ha risposto HTTP ${code}"; cat result.json 2>/dev/null || true; exit 1; }
           {
-            echo "### Scenari del ledger su D1 reale"
+            echo "### Scenari su D1 reale (${{ inputs.phase }})"
             echo "| Scenario | Esito | ms |"
             echo "|---|---|---|"
             jq -r '.results[] | "| \(.name) | \(.status) | \(.ms) |"' result.json
