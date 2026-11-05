@@ -41,14 +41,15 @@ export function createAuth(cfg) {
       const t = now();
       const valid = ok && claims.iss === issuer && audOk && typeof claims.exp === 'number' && claims.exp > t && (claims.nbf == null || claims.nbf <= t + 30);
       if (!valid) throw new AppError(401, 'unauthenticated');
-      if (typeof claims.email === 'string') {
+      if (typeof claims.email === 'string' && claims.email.length > 0) {
         if (claims.email.toLowerCase() !== ownerEmail.toLowerCase()) throw new AppError(403, 'forbidden');
         return { subject: 'owner', principal: 'owner' };
       }
       // Service token di Cloudflare Access (nessuna email, `common_name` = client id): principal 'device', ammesso SOLO su POST /v1/ingest/device
       // (lo impone il router). Chi può presentarlo lo decide la policy "Service Auth" configurata dal proprietario in Cloudflare Access.
-      if (typeof claims.common_name === 'string' && claims.common_name.length > 0 && !('email' in claims)) return { subject: 'owner', principal: 'device' };
-      throw new AppError(403, 'forbidden');
+      if (typeof claims.common_name === 'string' && claims.common_name.length > 0) return { subject: 'owner', principal: 'device' };
+      // Diagnostica: SOLO i nomi dei claim (mai i valori) per capire la forma del token
+      throw new AppError(403, 'forbidden', { claim_names: Object.keys(claims).sort() });
     },
   };
 }
