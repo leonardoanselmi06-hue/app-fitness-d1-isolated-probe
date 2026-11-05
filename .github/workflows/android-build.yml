@@ -1,0 +1,30 @@
+# Compila l'APK del collector Android e lo pubblica come release (scaricabile dal telefono, installazione manuale).
+# L'APK non contiene segreti: URL e credenziali Cloudflare si digitano nell'app sul telefono.
+name: android-build
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android-build.yml']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.9' }
+      - name: Compila (release firmata con chiave fissa)
+        run: gradle -p android assembleRelease --no-daemon --stacktrace
+      - name: Pubblica release
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          set -euo pipefail
+          tag="collector-v0.1.${{ github.run_number }}"
+          cp android/app/build/outputs/apk/release/app-release.apk "app-fitness-collector-${tag#collector-}.apk"
+          gh release create "$tag" "app-fitness-collector-${tag#collector-}.apk" --title "Collector Android ${tag#collector-}" --notes "APK del collector (passi e peso da Health Connect). Installazione manuale." --latest=false
+          echo "Release: $tag" | tee -a "$GITHUB_STEP_SUMMARY"
