@@ -11,7 +11,8 @@ export function localDate(iso, timeZone = 'Europe/Rome') {
 }
 
 // Lyfta restituisce workout_perform_date senza offset; interpretata come UTC
-// (VERIFIED_FOR_OBSERVED_CEST_DATES, comportamento al cambio DST ancora PENDING).
+// (VERIFIED_FOR_OBSERVED_CEST_DATES). La conversione UTC -> giorno locale al cambio ora è coperta da tests/dst.test.mjs;
+// che Lyfta usi davvero UTC anche attorno al cambio ora resta PENDING (serve un confronto con una fonte indipendente, es. Polar).
 export function utcNaiveToInstant(s) {
   if (typeof s !== 'string') return null;
   const m = s.trim().match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(\.\d+)?(Z)?$/);
