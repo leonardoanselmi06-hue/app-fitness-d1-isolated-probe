@@ -22,6 +22,7 @@ function fakePolar({ rotate = true, dataStatus = 200 } = {}) {
     }
     if (u.pathname === '/v4/data/training-sessions/list') {
       if (dataStatus !== 200) return res(dataStatus);
+      for (const k of ['from', 'to']) if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(u.searchParams.get(k) || '')) return res(400);
       const f = u.searchParams.get('features');
       return res(200, { trainingSessions: [{ identifier: 'x', startTime: '2026-11-04T07:21:00.000', hrAvg: 120, sport: 'RUNNING', exercises: [{ id: 1, ...(f ? { samples: { samples: [{ type: 'HEART_RATE', intervalMillis: 1000, values: [60, 61] }] }, zones: [{ type: 'ZONE_TYPE_HEART_RATE', zones: [{ lowerLimit: 50, higherLimit: 100, inZone: 'PT10S' }] }] } : {}) }] }] });
     }
