@@ -1,0 +1,20 @@
+name: CI
+# Solo test locali dell'app: NESSUN segreto e nessun accesso a Cloudflare in questo workflow.
+# I test su D1 reale richiedono un workflow separato, solo workflow_dispatch (vedi README del probe).
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm test
