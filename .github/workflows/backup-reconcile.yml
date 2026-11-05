@@ -1,0 +1,61 @@
+name: Backup D1 e riconciliazione Drive
+# Manuale + settimanale (solo dal ramo main). Il dump di D1 NON viene mai caricato come artifact né stampato: vive solo sul runner
+# e va su Drive (gzip, nome = sha256) dopo un ripristino di prova in SQLite. I log contengono solo conteggi.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 3 * * 0"
+permissions:
+  contents: read
+concurrency:
+  group: backup-reconcile
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults: { run: { working-directory: app } }
+    env:
+      DB_NAME: app-fitness-d1
+      WRANGLER_SEND_METRICS: "false"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Test locali
+        run: npm test
+      - name: Installa wrangler (versione fissata, senza segreti nell'ambiente)
+        run: npm install --no-save wrangler@4.45.0
+
+      - name: Esporta D1 (dump, conteggi, riferimenti RAW) — solo sul runner
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          base="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          id=$(curl -sS --max-time 30 -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${base}/d1/database?name=${DB_NAME}" | jq -r --arg n "${DB_NAME}" '.result[]? | select(.name==$n) | .uuid' | head -1)
+          [ -n "$id" ] && [ "$id" != "dd944ef9-d5e9-40dc-b034-5e156f71ef51" ] || { echo "::error::Database ${DB_NAME} non trovato (o è quello di test)"; exit 1; }
+          printf '{"name":"x","compatibility_date":"2026-10-01","d1_databases":[{"binding":"DB","database_name":"%s","database_id":"%s"}]}' "${DB_NAME}" "$id" > wrangler.backup.jsonc
+          # conteggi PRIMA e DOPO l'export: se cambiano durante l'export il backup non è coerente e il job fallisce
+          cnt() { npx --no-install wrangler d1 execute "${DB_NAME}" --remote -c wrangler.backup.jsonc --json --command "SELECT 'meta' AS t, COUNT(*) AS n FROM meta UNION ALL SELECT 'ingest_operations', COUNT(*) FROM ingest_operations UNION ALL SELECT 'current_records', COUNT(*) FROM current_records UNION ALL SELECT 'record_revisions', COUNT(*) FROM record_revisions;" | jq -c '.[0].results'; }
+          cnt > counts.json
+          npx --no-install wrangler d1 export "${DB_NAME}" --remote -c wrangler.backup.jsonc --output dump.sql >/dev/null
+          [ "$(cnt)" = "$(cat counts.json)" ] || { echo "::error::I dati sono cambiati durante l'export: backup non coerente, riprovare"; exit 1; }
+          npx --no-install wrangler d1 execute "${DB_NAME}" --remote -c wrangler.backup.jsonc --json --command "SELECT artifact_ref, artifact_sha256 FROM ingest_operations WHERE status = 'COMMITTED' AND artifact_ref IS NOT NULL;" | jq -c '.[0].results' > refs.json
+          echo "Export completato: $(wc -c < dump.sql) byte; tabelle: $(jq -r 'map("\(.t)=\(.n)")|join(", ")' counts.json); riferimenti RAW: $(jq length refs.json)"
+
+      - name: Ripristino di prova e backup su Drive
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: node scripts/backup-d1.mjs dump.sql counts.json
+
+      - name: Riconciliazione D1↔Drive (sola lettura)
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: node scripts/reconcile-drive.mjs refs.json | tee -a "$GITHUB_STEP_SUMMARY"

@@ -104,6 +104,19 @@ export class DriveRawStore {
     return { ref: ref(files[0].id), bytes: bytes.byteLength };
   }
 
+  // Elenco completo dei file RAW nella cartella (per la riconciliazione D1↔Drive). Solo lettura.
+  async listAll() {
+    const parent = await this.root(); const out = []; let pageToken;
+    do {
+      const p = new URLSearchParams({ q: `'${q(parent)}' in parents and trashed=false`, fields: 'nextPageToken,files(id,appProperties)', pageSize: '1000' });
+      if (pageToken) p.set('pageToken', pageToken);
+      const j = await (await this.call(`${API}/files?${p}`)).json();
+      for (const f of j.files || []) out.push({ ref: ref(f.id), sha256: f.appProperties?.sha256 ?? null });
+      pageToken = j.nextPageToken;
+    } while (pageToken);
+    return out;
+  }
+
   async get(r) {
     const id = idOf(r);
     const meta = await (await this.call(`${API}/files/${id}?fields=appProperties`)).json();
