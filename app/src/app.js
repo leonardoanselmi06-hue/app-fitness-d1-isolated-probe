@@ -10,13 +10,17 @@ const json = (status, body, extra = {}) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...extra },
 });
 
-export function createApp({ db, auth, assets }) {
+export function createApp({ db, auth, assets, jobs = {} }) {
   return async function fetch(request) {
     const url = new URL(request.url);
     try {
       if (url.pathname === '/v1/health' && request.method === 'GET') return json(200, { ok: true });
       if (url.pathname.startsWith('/v1/')) {
         const { subject } = await auth.authenticate(request); // fail-closed
+        if (url.pathname === '/v1/sync/lyfta' && request.method === 'POST') {
+          if (!jobs.lyfta) throw new AppError(404, 'not_found');
+          return json(200, await jobs.lyfta()); // sync server-side: il client non invia dati né scope_complete
+        }
         if (request.method !== 'GET') throw new AppError(405, 'method_not_allowed');
         const m = url.pathname.match(/^\/v1\/(canonical|operations)\/([A-Za-z0-9_.:-]{1,120})$/);
         if (m?.[1] === 'canonical') {

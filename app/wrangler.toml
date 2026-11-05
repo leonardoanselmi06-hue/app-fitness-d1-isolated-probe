@@ -13,3 +13,7 @@ binding = "DB"
 database_name = "app-fitness-d1-test"
 database_id = "dd944ef9-d5e9-40dc-b034-5e156f71ef51"   # D1 di TEST isolato (DEC-TEST-STORAGE-003/004). Non usare dati reali.
 migrations_dir = "migrations"
+
+# Cron giornaliero (04:17 UTC). Il job è SPENTO finché LYFTA_SYNC_ENABLED non è "true".
+[triggers]
+crons = ["17 4 * * *"]
