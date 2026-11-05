@@ -1,0 +1,167 @@
+name: D1 ledger test (manuale)
+# SOLO workflow_dispatch: nessun trigger push/pull_request, perché usa segreti Cloudflare (repo pubblico).
+# Bersaglio unico: database di TEST app-fitness-d1-test. Mai production. Solo dati sintetici.
+#
+# Fasi:
+#   preflight = controlli statici + controlli remoti in SOLA LETTURA (token, database, nome Worker). Nessun deploy, nessuna scrittura.
+#   run       = preflight + deploy di un Worker temporaneo (una route workers.dev, un solo binding D1) + scenari del ledger
+#               + pulizia delle righe sintetiche + eliminazione del Worker con verifica di assenza.
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "preflight = solo controlli (nessuna scrittura) | run = deploy temporaneo, test, pulizia"
+        type: choice
+        options: [preflight, run]
+        default: preflight
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-ledger-test
+  cancel-in-progress: false
+
+jobs:
+  d1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app
+    env:
+      EXPECTED_DB_ID: dd944ef9-d5e9-40dc-b034-5e156f71ef51
+      EXPECTED_DB_NAME: app-fitness-d1-test
+      WORKER_NAME: af-ledger-d1-${{ github.run_id }}
+      WRANGLER_SEND_METRICS: "false"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: Test locali (logica, emulatore)
+        run: npm test
+
+      - name: Preflight statico della configurazione del Worker di prova
+        run: node tests/d1-remote/preflight.mjs
+
+      # Installazione SENZA segreti nell'ambiente: gli script di installazione dei pacchetti non vedono il token.
+      - name: Installa wrangler (versione fissata)
+        run: npm install --no-save wrangler@4.45.0
+
+      - name: Preflight remoto (sola lettura)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?Secret CLOUDFLARE_API_TOKEN mancante nel repo}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?Secret CLOUDFLARE_ACCOUNT_ID mancante nel repo}"
+          base="https://api.cloudflare.com/client/v4"
+          api() { curl -sS --max-time 30 -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${base}$1"; }
+
+          # 1) token valido (token di account oppure token utente)
+          v=$(api "/accounts/${CLOUDFLARE_ACCOUNT_ID}/tokens/verify" || true)
+          if [ "$(echo "$v" | jq -r '.result.status // empty' 2>/dev/null)" != "active" ]; then
+            v=$(api "/user/tokens/verify" || true)
+          fi
+          [ "$(echo "$v" | jq -r '.result.status // empty' 2>/dev/null)" = "active" ] || { echo "::error::Token non valido, scaduto o non associato a questo account"; exit 1; }
+          echo "Token attivo."
+
+          # 2) il database bersaglio appartiene a questo account ed è proprio quello di test
+          db=$(api "/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database/${EXPECTED_DB_ID}")
+          [ "$(echo "$db" | jq -r '.success')" = "true" ] || { echo "::error::Database ${EXPECTED_DB_ID} non trovato o non accessibile con questo token"; exit 1; }
+          [ "$(echo "$db" | jq -r '.result.name')" = "${EXPECTED_DB_NAME}" ] || { echo "::error::Il database non si chiama ${EXPECTED_DB_NAME}"; exit 1; }
+          echo "Database di test verificato: ${EXPECTED_DB_NAME}."
+
+          # 3) il nome del Worker non esiste già nell'account
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${base}/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${WORKER_NAME}" || echo 000)
+          [ "$code" = "404" ] || { echo "::error::Verifica del nome Worker ${WORKER_NAME} fallita (HTTP ${code}): esiste già o il token non può leggerlo"; exit 1; }
+          echo "Il Worker ${WORKER_NAME} non esiste ancora."
+
+          # 4) sottodominio workers.dev dell'account
+          sub=$(api "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" | jq -r '.result.subdomain // empty')
+          [ -n "$sub" ] || { echo "::error::Nessun sottodominio workers.dev registrato nell'account"; exit 1; }
+          echo "WORKERS_SUBDOMAIN=${sub}" >> "$GITHUB_ENV"
+          echo "Preflight remoto OK: nessuna scrittura eseguita." | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # ---------------------------------------------------------------- fase run ----
+      - name: Deploy del Worker temporaneo (un solo binding D1 di test, nessuna route)
+        if: ${{ inputs.phase == 'run' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          echo "DEPLOY_ATTEMPTED=1" >> "$GITHUB_ENV"   # abilita la pulizia solo da qui in poi
+          npx --no-install wrangler deploy -c tests/d1-remote/wrangler.jsonc --name "${WORKER_NAME}"
+
+      - name: Imposta la chiave temporanea del Worker (secret, mai nel repo né nei log)
+        if: ${{ inputs.phase == 'run' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          key=$(openssl rand -hex 24)
+          echo "::add-mask::${key}"
+          echo "TEST_KEY=${key}" >> "$GITHUB_ENV"
+          printf '%s' "${key}" | npx --no-install wrangler secret put TEST_KEY --name "${WORKER_NAME}" -c tests/d1-remote/wrangler.jsonc
+
+      - name: Esegui gli scenari del ledger su D1 reale
+        if: ${{ inputs.phase == 'run' }}
+        run: |
+          set -euo pipefail
+          url="https://${WORKER_NAME}.${WORKERS_SUBDOMAIN}.workers.dev/run"
+          code=000
+          for i in $(seq 1 12); do
+            code=$(curl -sS -o result.json -w '%{http_code}' --max-time 90 -X POST "$url" \
+              -H "authorization: Bearer ${TEST_KEY}" -H 'content-type: application/json' \
+              -d "{\"run_id\":\"${GITHUB_RUN_ID}\"}" || echo 000)
+            case "$code" in 200|400|403|422|500) break;; esac
+            echo "tentativo ${i}: HTTP ${code}, il Worker non è ancora pronto; riprovo tra 5s"; sleep 5
+          done
+          [ "$code" = "200" ] || { echo "::error::Il Worker ha risposto HTTP ${code}"; cat result.json 2>/dev/null || true; exit 1; }
+          {
+            echo "### Scenari del ledger su D1 reale"
+            echo "| Scenario | Esito | ms |"
+            echo "|---|---|---|"
+            jq -r '.results[] | "| \(.name) | \(.status) | \(.ms) |"' result.json
+          } >> "$GITHUB_STEP_SUMMARY"
+          jq '{ok, generation, batch_calls}' result.json
+          jq -r '.results[] | select(.info) | "info: \(.name) -> \(.info | tostring)"' result.json
+          jq -e '.ok == true' result.json > /dev/null || { jq -r '.results[] | select(.status=="FAIL") | "FAIL: \(.name) -- \(.error)"' result.json; exit 1; }
+          echo "Tutti gli scenari sono passati su D1 reale."
+
+      # ------------------------------------------------------- pulizia (sempre) ----
+      - name: Pulizia delle righe sintetiche di questo run
+        if: ${{ always() && env.DEPLOY_ATTEMPTED == '1' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          p="d1t-${GITHUB_RUN_ID}-%"
+          npx --no-install wrangler d1 execute "${EXPECTED_DB_NAME}" --remote -c tests/d1-remote/wrangler.jsonc \
+            --command "DELETE FROM record_revisions WHERE subject_id LIKE '${p}'; DELETE FROM current_records WHERE subject_id LIKE '${p}'; DELETE FROM ingest_operations WHERE subject_id LIKE '${p}';"
+          left=$(npx --no-install wrangler d1 execute "${EXPECTED_DB_NAME}" --remote -c tests/d1-remote/wrangler.jsonc --json \
+            --command "SELECT (SELECT COUNT(*) FROM record_revisions WHERE subject_id LIKE '${p}') + (SELECT COUNT(*) FROM current_records WHERE subject_id LIKE '${p}') + (SELECT COUNT(*) FROM ingest_operations WHERE subject_id LIKE '${p}') AS n;" \
+            | jq -r '.[0].results[0].n')
+          [ "${left}" = "0" ] || { echo "::error::Restano ${left} righe sintetiche: pulizia NON verificata"; exit 1; }
+          echo "Righe sintetiche eliminate e verificate (0 residue). Il contatore meta.generation resta incrementato." | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Elimina il Worker temporaneo e verifica che sia sparito
+        if: ${{ always() && env.DEPLOY_ATTEMPTED == '1' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -uo pipefail
+          url="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${WORKER_NAME}"
+          status() { curl -sS -o /dev/null -w '%{http_code}' --max-time 30 -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$url" || echo 000; }
+          if [ "$(status)" = "404" ]; then echo "Worker già assente."; exit 0; fi
+          npx --no-install wrangler delete --name "${WORKER_NAME}" -c tests/d1-remote/wrangler.jsonc --force || true
+          code=$(status)
+          [ "$code" = "404" ] || { echo "::error::Worker ${WORKER_NAME} ancora presente (HTTP ${code}): pulizia NON verificata, eliminalo a mano dal dashboard"; exit 1; }
+          echo "Worker eliminato e assenza verificata." | tee -a "$GITHUB_STEP_SUMMARY"
