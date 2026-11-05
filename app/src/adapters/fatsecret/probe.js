@@ -34,5 +34,23 @@ export async function selfTest(tokens, fetchFn) {
     api_2legged: await one('GET', 'https://platform.fatsecret.com/rest/foods/search/v1', { search_expression: 'apple', format: 'json', max_results: '1' }),
     request_token_authentication_host: await one('POST', 'https://authentication.fatsecret.com/oauth/request_token', {}, { oauth_callback: 'oob' }),
     request_token_www_host: await one('POST', 'https://www.fatsecret.com/oauth/request_token', {}, { oauth_callback: 'oob' }),
+    variants: await variants(tokens, fetchFn),
   };
+}
+
+// Varianti di trasporto della stessa firma sul request_token (l'host di autenticazione rifiuta quella in query con POST).
+async function variants(tokens, fetchFn) {
+  const U = 'https://authentication.fatsecret.com/oauth/request_token';
+  const out = {};
+  const run = async (name, fn) => {
+    try { const res = await fn(); const t = (await res.text()).replace(/oauth_[a-z_]+=[^&\s"<]*/g, 'oauth_…').slice(0, 100); out[name] = { status: res.status, ok: res.ok, message: res.ok ? null : t }; }
+    catch (e) { out[name] = { errore: e.code ?? 'errore' }; }
+  };
+  for (const cb of ['oob', 'https://app-fitness.leonardo-anselmi06.workers.dev/v1/fatsecret/callback']) {
+    const k = cb === 'oob' ? 'oob' : 'url';
+    await run(`post_body_${k}`, async () => { const r = await tokens.sign('POST', U, {}, null, '', { oauth_callback: cb }); return fetchFn(U, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' }, body: r.qs }); });
+    await run(`get_query_${k}`, async () => { const r = await tokens.sign('GET', U, {}, null, '', { oauth_callback: cb }); return fetchFn(r.url, { headers: r.headers }); });
+    await run(`post_query_${k}`, async () => { const r = await tokens.sign('POST', U, {}, null, '', { oauth_callback: cb }); return fetchFn(r.url, { method: 'POST', headers: r.headers }); });
+  }
+  return out;
 }
