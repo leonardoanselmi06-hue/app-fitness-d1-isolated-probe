@@ -47,4 +47,5 @@ export class D1Shim {
 }
 
 export const MIGRATION = new URL('../../migrations/0001_ledger.sql', import.meta.url).pathname;
-export const newDb = opts => new D1Shim(':memory:', opts).migrate(MIGRATION);
+const MIGRATIONS = ['0001_ledger.sql', '0002_oauth_tokens.sql'].map(f => new URL(`../../migrations/${f}`, import.meta.url).pathname);
+export const newDb = opts => MIGRATIONS.reduce((d, m) => d.migrate(m), new D1Shim(':memory:', opts));
