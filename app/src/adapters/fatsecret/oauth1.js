@@ -16,16 +16,18 @@ export async function signedRequest({ method, url, params = {}, consumerKey, con
   const base = `${method.toUpperCase()}&${pct(url)}&${pct(all.map(([k, v]) => `${k}=${v}`).join('&'))}`;
   const k = await crypto.subtle.importKey('raw', enc.encode(`${pct(consumerSecret)}&${pct(tokenSecret)}`), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
   const sig = btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign('HMAC', k, enc.encode(base)))));
-  const header = 'OAuth ' + Object.entries({ ...oauth, oauth_signature: sig }).map(([a, v]) => `${pct(a)}="${pct(v)}"`).join(', ');
-  const qs = new URLSearchParams(params).toString();
-  return { url: qs ? `${url}?${qs}` : url, headers: { authorization: header, accept: 'application/json' } };
+  // Parametri OAuth nella query string (forma usata negli esempi FatSecret); nessun header Authorization.
+  const qs = Object.entries({ ...params, ...oauth, oauth_signature: sig }).map(([a, v]) => `${pct(a)}=${pct(v)}`).join('&');
+  return { url: `${url}?${qs}`, headers: { accept: 'application/json' } };
 }
 
 const form = async res => Object.fromEntries(new URLSearchParams(await res.text()));
 // Il rifiuto di Cloudflare (sfida JS) è riconoscibile dall'header cf-mitigated: lo segnaliamo come causa distinta.
-function fail(res, step) {
+async function fail(res, step) {
   const cf = res.headers?.get?.('cf-mitigated');
-  return new AppError(502, 'fatsecret_error', { step, upstream_status: res.status, ...(cf ? { reason: 'cloudflare_challenge' } : {}) });
+  // Solo per i passi di autenticazione: primo tratto del messaggio d'errore di FatSecret (non contiene dati dell'utente né i nostri segreti).
+  let msg; if (!cf && step !== 'data') { try { msg = (await res.text()).replace(/oauth_[a-z_]+=[^&\s"<]*/g, 'oauth_…').slice(0, 160); } catch {} }
+  return new AppError(502, 'fatsecret_error', { step, upstream_status: res.status, ...(cf ? { reason: 'cloudflare_challenge' } : {}), ...(msg ? { upstream_message: msg } : {}) });
 }
 
 export class FatSecretTokens {
@@ -38,7 +40,7 @@ export class FatSecretTokens {
   async begin(callback) {
     const r = await this.sign('POST', REQUEST_TOKEN_URL, {}, null, '', { oauth_callback: callback });
     let res; try { res = await this.fetchFn(r.url, { method: 'POST', headers: r.headers }); } catch { throw new AppError(502, 'fatsecret_unreachable'); }
-    if (!res.ok) throw fail(res, 'request_token');
+    if (!res.ok) throw await fail(res, 'request_token');
     const j = await form(res);
     if (!j.oauth_token || !j.oauth_token_secret) throw new AppError(502, 'fatsecret_error', { step: 'request_token', reason: 'no_token' });
     await this.db.prepare("INSERT INTO oauth_tokens (provider, sealed, expires_at, scope, updated_at) VALUES (?, ?, ?, 'request', ?) ON CONFLICT(provider) DO UPDATE SET sealed = excluded.sealed, expires_at = excluded.expires_at, updated_at = excluded.updated_at")
@@ -53,7 +55,7 @@ export class FatSecretTokens {
     await this.db.prepare('DELETE FROM oauth_tokens WHERE provider = ?').bind(`fatsecret_req:${requestToken}`).run();
     const r = await this.sign('GET', ACCESS_TOKEN_URL, {}, requestToken, secret, { oauth_verifier: verifier });
     let res; try { res = await this.fetchFn(r.url, { headers: r.headers }); } catch { throw new AppError(502, 'fatsecret_unreachable'); }
-    if (!res.ok) throw fail(res, 'access_token');
+    if (!res.ok) throw await fail(res, 'access_token');
     const j = await form(res);
     if (!j.oauth_token || !j.oauth_token_secret) throw new AppError(502, 'fatsecret_error', { step: 'access_token', reason: 'no_token' });
     await this.db.prepare("INSERT INTO oauth_tokens (provider, sealed, expires_at, scope, updated_at) VALUES ('fatsecret', ?, '9999-12-31T00:00:00.000Z', 'diary', ?) ON CONFLICT(provider) DO UPDATE SET sealed = excluded.sealed, updated_at = excluded.updated_at")
@@ -79,7 +81,7 @@ export function fatsecretGet({ tokens, fetchFn = (...a) => fetch(...a), sleep = 
       let res; try { res = await fetchFn(r.url, { headers: r.headers }); } catch { if (attempt >= retries) throw new AppError(502, 'fatsecret_unreachable'); await sleep(500 * 2 ** attempt); continue; }
       if ((res.status === 429 || res.status >= 500) && attempt < retries) { await sleep(1000 * 2 ** attempt); continue; }
       if (res.status === 401 || res.status === 403) throw new AppError(502, 'fatsecret_error', { step: 'data', upstream_status: res.status, path, ...(res.headers?.get?.('cf-mitigated') ? { reason: 'cloudflare_challenge' } : {}) });
-      if (!res.ok) throw fail(res, 'data');
+      if (!res.ok) throw await fail(res, 'data');
       return res.json();
     }
   };
