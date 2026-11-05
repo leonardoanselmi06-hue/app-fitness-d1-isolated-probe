@@ -13,7 +13,7 @@ Codice ripristinato dallo snapshot del commit `607a9c8` (1 novembre 2026). Le ic
 | Auth Cloudflare Access (JWT RS256), fail-closed | implementata, testata offline con chiavi generate nei test |
 | API `/v1` sola lettura + PWA shell | implementate |
 | Migrazione `0001_ledger.sql` su D1 di test | applicata il 3 novembre 2026 (solo schema, nessun dato) |
-| RawStore su Google Drive (DEC-STORAGE-005) | **NON implementato**: serve OAuth Google lato server |
+| RawStore su Google Drive (DEC-STORAGE-005) | adapter implementato (`src/storage/drive-rawstore.js`), testato con Drive finto (10 test). **Mai provato su Drive reale**: servono i 3 secret Google (vedi `docs/DRIVE_SETUP.md`). Non ancora collegato a nessuna rotta (il sync Lyfta non ha ancora un endpoint) |
 | Test su D1 REALE (batch, CAS, concorrenza) | workflow pronto (`d1-ledger-test.yml`, solo manuale), **non ancora eseguito**: l'emulatore non è evidenza di comportamento D1 |
 | ACK realmente perso (disconnessione di rete) | **NON simulato**: lo scenario verifica solo il recupero dello stato per `operation_id` |
 | Renpho/FatSecret CSV, sonno provvisorio, Polar | da fare |
