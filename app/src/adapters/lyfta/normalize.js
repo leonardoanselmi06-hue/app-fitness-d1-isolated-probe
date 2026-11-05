@@ -68,7 +68,7 @@ export function normalizeWorkout(w, wi = 0) {
       time_semantics: 'utc_naive_assumed', // VERIFIED_FOR_OBSERVED_CEST_DATES; DST PENDING
       // peso corporeo registrato da Lyfta: campo SEPARATO, mai fuso col carico delle serie
       user_body_weight_kg: num(w.body_weight),
-      source_volume: num(w.volume),
+      source_volume: num(w.total_volume ?? w.volume), // `total_volume` verificato su payload reale (probe 5 nov 2026); `volume` solo per le fixture storiche
       exercises: (w.exercises ?? []).map((ex, ei) => normalizeExercise(ex, wi, ei)),
     },
   };

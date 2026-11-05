@@ -81,3 +81,8 @@ test('integrità paginazione: totale dichiarato non coerente => incompleto', asy
   const r = await pullAllWorkouts(lying); assert.equal(r.complete, false); assert.equal(r.reason, 'count_mismatch');
   const nopag = async () => ({ workouts: [workout(1)] }); assert.equal((await pullAllWorkouts(nopag)).reason, 'pagination_unknown');
 });
+
+test('volume: legge total_volume (campo reale), con fallback a volume', () => {
+  assert.equal(normalizeWorkout(workout(1, { volume: undefined, total_volume: 4321 })).payload.source_volume, 4321);
+  assert.equal(normalizeWorkout(workout(2)).payload.source_volume, 1200);
+});
