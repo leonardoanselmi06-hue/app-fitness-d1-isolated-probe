@@ -1,7 +1,14 @@
 name: Deploy Worker (manuale)
 # SOLO workflow_dispatch. Crea (se manca) il database D1 DEDICATO `app-fitness-d1` (diverso da quello di test), applica le migrazioni,
-# deploya il Worker `app-fitness` e imposta i secret presenti nel repo. Il sync Lyfta resta SPENTO: LYFTA_SYNC_ENABLED non viene mai impostato qui.
-on: workflow_dispatch
+# deploya il Worker `app-fitness` e imposta i secret presenti nel repo. Il sync Lyfta cambia stato SOLO con l'input `lyfta_sync` (default: non toccare).
+on:
+  workflow_dispatch:
+    inputs:
+      lyfta_sync:
+        description: "Sync automatico Lyfta: unchanged = non toccare | on = accendi (dati reali) | off = spegni"
+        type: choice
+        options: [unchanged, "on", "off"]
+        default: unchanged
 permissions:
   contents: read
 concurrency:
@@ -86,7 +93,11 @@ jobs:
             if [ -n "$v" ]; then printf '%s' "$v" | npx --no-install wrangler secret put "$n" -c wrangler.generated.jsonc >/dev/null && echo "impostato: $n"
             else echo "assente nel repo (saltato): $n"; fi
           done
-          echo "LYFTA_SYNC_ENABLED NON impostato: il sync Lyfta resta spento." | tee -a "$GITHUB_STEP_SUMMARY"
+          case "${{ inputs.lyfta_sync }}" in
+            on)  printf 'true' | npx --no-install wrangler secret put LYFTA_SYNC_ENABLED -c wrangler.generated.jsonc >/dev/null && echo "Sync Lyfta ACCESO (decisione utente, DEC-GOV-004)." | tee -a "$GITHUB_STEP_SUMMARY" ;;
+            off) npx --no-install wrangler secret delete LYFTA_SYNC_ENABLED -c wrangler.generated.jsonc >/dev/null 2>&1 || true; echo "Sync Lyfta SPENTO." | tee -a "$GITHUB_STEP_SUMMARY" ;;
+            *)   echo "LYFTA_SYNC_ENABLED non modificato." | tee -a "$GITHUB_STEP_SUMMARY" ;;
+          esac
 
       - name: Indirizzo del Worker
         env:

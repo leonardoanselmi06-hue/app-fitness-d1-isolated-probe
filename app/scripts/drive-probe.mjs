@@ -8,8 +8,8 @@ const fail = m => { console.error(`::error::${m}`); process.exit(1); };
 try {
   const payload = new TextEncoder().encode('﻿' + JSON.stringify({ synthetic: true, probe: 'drive-probe', samples: Array.from({ length: 2000 }, (_, i) => 60 + (i % 7)) }));
   const sha = await sha256Hex(payload);
-  const a = await store.put(sha, payload);
-  const b = await store.put(sha, payload);
+  const a = await store.put(sha, payload, { kind: 'test' });
+  const b = await store.put(sha, payload, { kind: 'test' });
   if (a.ref !== b.ref) fail('put non idempotente: ref diversi per lo stesso contenuto');
   const back = await store.get(a.ref);
   if ((await sha256Hex(back)) !== sha || back.byteLength !== payload.byteLength) fail('round-trip non identico');

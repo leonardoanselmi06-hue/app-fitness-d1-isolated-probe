@@ -26,3 +26,10 @@ test('riconciliazione: contenuto corrotto su Drive rilevato', async () => {
   const r = await reconcile({ store: s, refs: [{ artifact_ref: a.ref, artifact_sha256: a.sha }] });
   assert.deepEqual(r.corrupt, [a.ref]); assert.equal(r.ok, false);
 });
+
+test('riconciliazione: backup e file di prova (kind) non sono orfani', async () => {
+  const { s } = mk(); const a = await put(s, 'a'); const sha = await sha256Hex('dump');
+  await s.put(sha, 'dump', { kind: 'backup' }); await s.put(await sha256Hex('prova'), 'prova', { kind: 'test' }); const o = await put(s, 'orfano vero');
+  const r = await reconcile({ store: s, refs: [{ artifact_ref: a.ref, artifact_sha256: a.sha }] });
+  assert.deepEqual(r.orphans, [o.ref]); assert.equal(r.expected_unreferenced, 2); assert.equal(r.ok, true);
+});

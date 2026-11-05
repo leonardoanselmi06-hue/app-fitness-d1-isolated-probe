@@ -8,5 +8,5 @@ import { newDb } from './helpers/d1-shim.mjs';
 test('collaudo sync end-to-end: la logica passa sull\'emulatore', async () => {
   const out = await runSyncE2E({ DB: newDb() }, '777', { rawStore: new MemoryRawStore() });
   assert.deepEqual(out.results.filter(r => r.status !== 'PASS'), []);
-  assert.equal(out.ok, true); assert.equal(out.results.length, 5);
+  assert.equal(out.ok, true); assert.equal(out.results.length, 6);
 });

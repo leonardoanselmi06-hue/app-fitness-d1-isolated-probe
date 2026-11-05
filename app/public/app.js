@@ -21,5 +21,17 @@ async function refresh() {
     $('notice').textContent = d.note;
   } catch (e) { $('connection').textContent = 'API non raggiungibile'; $('notice').textContent = e.message; }
 }
+const SYNC_TEXT = { disabled: 'Il sync Lyfta è spento (LYFTA_SYNC_ENABLED).', lyfta_unconfigured: 'Chiave Lyfta mancante.', raw_store_unconfigured: 'Archivio Drive non configurato.', no_database: 'Database non collegato.', fetch_error: 'Lyfta non ha risposto correttamente: nessun dato modificato.', invalid_page: 'Risposta Lyfta non valida: nessun dato modificato.' };
+$('syncLyfta').addEventListener('click', async () => {
+  const b = $('syncLyfta'), out = $('syncResult'); b.disabled = true; out.textContent = 'Sincronizzazione in corso…';
+  try {
+    const r = await fetch('/v1/sync/lyfta', { method: 'POST', credentials: 'same-origin' });
+    if (r.status === 401 || r.status === 403) { out.textContent = 'Accesso richiesto.'; return; }
+    const d = await r.json();
+    if (!d.ran) out.textContent = SYNC_TEXT[d.reason] ?? `Non eseguito (${d.reason ?? r.status}).`;
+    else if (!d.ok) out.textContent = `Sync non riuscito: ${SYNC_TEXT[d.reason] ?? d.reason}`;
+    else { out.textContent = `Sync ${d.complete ? 'completo' : 'parziale'}: ${d.receipt?.modified ?? 0} aggiornati, ${d.receipt?.deleted ?? 0} rimossi${d.receipt?.replayed ? ' (nessuna novità)' : ''}.`; await refresh(); }
+  } catch { out.textContent = 'API non raggiungibile.'; } finally { b.disabled = false; }
+});
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 refresh();

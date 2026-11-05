@@ -129,6 +129,8 @@ jobs:
             code=$(curl -sS -o result.json -w '%{http_code}' --max-time 120 -X POST "$url" \
               -H "authorization: Bearer ${TEST_KEY}" -H 'content-type: application/json' \
               -d "{\"run_id\":\"${GITHUB_RUN_ID}\"}" || echo 000)
+            # 500 con "credenziali Google mancanti" = versione del Worker senza i secret ancora propagati: si ritenta
+            if [ "$code" = "500" ] && grep -q 'credenziali Google mancanti' result.json 2>/dev/null; then code=000; fi
             case "$code" in 200|400|403|422|500) break;; esac
             echo "tentativo ${i}: HTTP ${code}, il Worker non è ancora pronto; riprovo tra 5s"; sleep 5
           done

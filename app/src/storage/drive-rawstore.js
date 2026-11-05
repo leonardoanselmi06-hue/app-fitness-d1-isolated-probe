@@ -89,7 +89,8 @@ export class DriveRawStore {
     return this.list(`'${q(parent)}' in parents and appProperties has { key='sha256' and value='${sha256}' } and trashed=false`);
   }
 
-  async put(sha256, data) {
+  // kind (opzionale): 'backup' | 'test' marca file che D1 non referenzia per costruzione (la riconciliazione non li conta come orfani).
+  async put(sha256, data, { kind } = {}) {
     const bytes = toBytes(data);
     if (!/^[0-9a-f]{64}$/.test(sha256) || (await sha256Hex(bytes)) !== sha256) throw new AppError(422, 'raw_hash_mismatch');
     if (bytes.byteLength > MAX_BYTES) throw new AppError(413, 'raw_too_large');
@@ -97,7 +98,7 @@ export class DriveRawStore {
     let files = await this.find(sha256, parent);
     if (!files.length) {
       const packed = await gzip(bytes);
-      await this.upload({ name: `${sha256}.gz`, parents: [parent], appProperties: { sha256, enc: 'gzip', size: String(bytes.byteLength) } }, packed, 'application/gzip');
+      await this.upload({ name: `${sha256}.gz`, parents: [parent], appProperties: { sha256, enc: 'gzip', size: String(bytes.byteLength), ...(kind ? { kind } : {}) } }, packed, 'application/gzip');
       files = await this.find(sha256, parent); // rilegge: se due scrittori hanno creato un duplicato, tutti convergono sul più vecchio
       if (!files.length) throw new AppError(503, 'raw_store_unavailable');
     }
@@ -111,7 +112,7 @@ export class DriveRawStore {
       const p = new URLSearchParams({ q: `'${q(parent)}' in parents and trashed=false`, fields: 'nextPageToken,files(id,appProperties)', pageSize: '1000' });
       if (pageToken) p.set('pageToken', pageToken);
       const j = await (await this.call(`${API}/files?${p}`)).json();
-      for (const f of j.files || []) out.push({ ref: ref(f.id), sha256: f.appProperties?.sha256 ?? null });
+      for (const f of j.files || []) out.push({ ref: ref(f.id), sha256: f.appProperties?.sha256 ?? null, kind: f.appProperties?.kind ?? null });
       pageToken = j.nextPageToken;
     } while (pageToken);
     return out;

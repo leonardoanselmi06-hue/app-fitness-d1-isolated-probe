@@ -24,7 +24,7 @@ const store = makeRawStore(process.env);
 if (!(store instanceof DriveRawStore)) fail('Servono i secret GOOGLE_*');
 try {
   const sha = await sha256Hex(bytes);
-  const { ref } = await store.put(sha, bytes);
+  const { ref } = await store.put(sha, bytes, { kind: 'backup' });
   const back = await store.get(ref);
   if ((await sha256Hex(back)) !== sha) fail('Backup riletto da Drive diverso dall\'originale');
   console.log(`Backup su Drive OK: ${bytes.byteLength} byte, riletto con hash identico (sha256 ${sha.slice(0, 12)}…)`);
