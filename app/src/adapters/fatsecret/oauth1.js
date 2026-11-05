@@ -40,7 +40,8 @@ export class FatSecretTokens {
   // 1) request token (il secret temporaneo resta in D1 cifrato, legato al token; scade dopo 15 minuti)
   async begin(callback) {
     const r = await this.sign('POST', REQUEST_TOKEN_URL, {}, null, '', { oauth_callback: callback });
-    let res; try { res = await this.fetchFn(r.url, { method: 'POST', headers: r.headers }); } catch { throw new AppError(502, 'fatsecret_unreachable'); }
+    // FatSecret accetta il POST solo con i parametri OAuth nel CORPO (form), verificato con l'autodiagnosi: in query rifiuta la firma.
+    let res; try { res = await this.fetchFn(REQUEST_TOKEN_URL, { method: 'POST', headers: { ...r.headers, 'content-type': 'application/x-www-form-urlencoded' }, body: r.qs }); } catch { throw new AppError(502, 'fatsecret_unreachable'); }
     if (!res.ok) throw await fail(res, 'request_token');
     const j = await form(res);
     if (!j.oauth_token || !j.oauth_token_secret) throw new AppError(502, 'fatsecret_error', { step: 'request_token', reason: 'no_token' });

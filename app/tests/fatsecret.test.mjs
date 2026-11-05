@@ -13,7 +13,9 @@ function fake({ challenge = false } = {}) {
   const log = [];
   const fetchFn = async (url, init = {}) => {
     const u = new URL(url); log.push(`${init.method || 'GET'} ${u.host}${u.pathname}`);
-    assert.equal(init.headers?.authorization, undefined); assert.ok(u.searchParams.get('oauth_signature')); // parametri OAuth nella query
+    if (init.method === 'POST' && typeof init.body === 'string') for (const [k, v] of new URLSearchParams(init.body)) u.searchParams.set(k, v); // POST: parametri nel corpo
+    assert.equal(init.headers?.authorization, undefined); assert.ok(u.searchParams.get('oauth_signature')); // parametri OAuth in query (GET) o nel corpo (POST)
+    if (init.method === 'POST' && url.includes('?')) return txt('Firma non valida', 400); // come FatSecret: POST con parametri in query rifiutato
     const auth = [...u.searchParams].map(([k, v]) => `${k}="${v}"`).join(' ');
     if (u.pathname === '/oauth/request_token') return challenge ? txt('x', 403, { 'cf-mitigated': 'challenge' }) : (assert.match(auth, /oauth_callback=/), txt('oauth_token=RT&oauth_token_secret=RS&oauth_callback_confirmed=true'));
     if (u.pathname === '/oauth/access_token') return auth.includes('oauth_verifier="V"') && auth.includes('oauth_token="RT"') ? txt('oauth_token=AT&oauth_token_secret=AS') : txt('x', 401);
@@ -82,6 +84,6 @@ test('firma: vettore di riferimento della documentazione Twitter/X (HMAC-SHA1) e
 test('autodiagnosi: riporta stato di ciascun controllo, mai segreti', async () => {
   const { tk, f } = mk(); const { selfTest } = await import('../src/adapters/fatsecret/probe.js');
   const out = await selfTest(tk, async (url, init) => (new URL(url).pathname.startsWith('/rest/') ? txt('{"error":{"code":8,"message":"Invalid signature"}}', 400) : f.fetchFn(url, init)));
-  assert.equal(out.api_2legged.status, 400); assert.equal(out.request_token_authentication_host.ok, true);
+  assert.equal(out.api_2legged.status, 400); assert.equal(out.request_token_authentication_host.ok, false); assert.equal(out.variants.post_body_oob.ok, true); // POST in query rifiutato, POST con corpo accettato
   assert.ok(!JSON.stringify(out).includes('cs')); assert.equal(out.key_len, 2);
 });
