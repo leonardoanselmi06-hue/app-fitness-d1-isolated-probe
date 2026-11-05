@@ -27,6 +27,7 @@ import java.time.temporal.ChronoUnit
 
 object Collector {
     @Volatile private var lastBody: String = ""
+    @Volatile private var missingSleepCols: List<String> = emptyList()
     // Permessi minimi: sola lettura di passi e peso (+ lettura in background e storico, se il telefono li supporta).
     val permissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
@@ -84,7 +85,7 @@ object Collector {
         val body = JSONObject().put("device_id", cfg.deviceId).put("steps", steps).put("weights", weights).put("sleep", sleep).toString()
         val code = post(cfg, body)
         when (code) {
-            200 -> "OK: ${steps.length()} giorni di passi, ${weights.length()} pesi, ${sleep.length()} notti di sonno inviati." + if (sleepPerm) "" else " (Sonno: accesso a Sleep as Android non concesso)"
+            200 -> "OK: ${steps.length()} giorni di passi, ${weights.length()} pesi, ${sleep.length()} notti di sonno inviati." + (if (sleepPerm) "" else " (Sonno: accesso a Sleep as Android non concesso)") + (if (missingSleepCols.isNotEmpty()) " Colonne sonno non disponibili: ${missingSleepCols.joinToString(",")}." else "")
             401, 403 -> "Accesso rifiutato ($code): controlla Client ID/Secret e la policy in Cloudflare. Dettaglio: ${lastBody.take(160)}"
             503 -> "Il server non accetta ancora i dati (ricezione spenta)."
             else -> "Errore del server ($code)."
@@ -104,8 +105,10 @@ object Collector {
         val uri = Uri.parse("content://com.urbandroid.sleep.history/records")
         val cols = listOf("startTime", "toTime", "latestToTime", "timezone", "rating", "quality", "snore", "cycles", "lenAdjust", "noiseLevel", "length")
         val since = System.currentTimeMillis() - SLEEP_DAYS * 86_400_000L
-        val c: Cursor = try { ctx.contentResolver.query(uri, cols.toTypedArray(), null, null, "startTime DESC") }
-            catch (e: Exception) { ctx.contentResolver.query(uri, arrayOf("startTime", "toTime"), null, null, "startTime DESC") } ?: return out
+        // Le colonne disponibili variano: si provano una alla volta e si usano solo quelle che il provider accetta.
+        val usable = cols.filter { n -> n == "startTime" || n == "toTime" || try { ctx.contentResolver.query(uri, arrayOf("startTime", n), null, null, "startTime DESC")?.use { true } ?: false } catch (e: Exception) { false } }
+        missingSleepCols = cols.filter { it !in usable }
+        val c: Cursor = ctx.contentResolver.query(uri, usable.toTypedArray(), null, null, "startTime DESC") ?: return out
         c.use {
             val ix = cols.associateWith { n -> it.getColumnIndex(n) }
             fun get(n: String): Any? = ix[n]?.takeIf { i -> i >= 0 }?.let { i -> value(it, i) }
