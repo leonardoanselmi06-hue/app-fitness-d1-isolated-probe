@@ -59,7 +59,7 @@ test('senza connessione o senza credenziali: errori chiari, nessun fallback', as
 test('client dati: Bearer, parametri, features come lista; 401 = reauth', async () => {
   const { tk, f } = mk(); await tk.exchangeCode('buono', 'https://x/cb');
   const get = polarGet({ tokens: tk, fetchFn: f.fetchFn, sleep: async () => {} });
-  const r = await get('/training-sessions/list', { from: '2026-11-04', to: '2026-11-05', features: ['samples', 'zones'] });
+  const r = await get('/training-sessions/list', { from: '2026-11-04T00:00:00', to: '2026-11-05T00:00:00', features: ['samples', 'zones'] });
   assert.equal(r.trainingSessions.length, 1);
   const bad = mk({}, { dataStatus: 401 }); await bad.tk.exchangeCode('buono', 'https://x/cb');
   await assert.rejects(polarGet({ tokens: bad.tk, fetchFn: bad.f.fetchFn, sleep: async () => {} })('/training-sessions/list'), e => e.code === 'polar_reauth_required');
