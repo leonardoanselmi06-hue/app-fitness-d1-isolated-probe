@@ -22,6 +22,7 @@ function fakePolar({ rotate = true, dataStatus = 200 } = {}) {
     }
     if (u.pathname === '/v4/data/training-sessions/list') {
       if (dataStatus !== 200) return res(dataStatus);
+      for (const k of ['from', 'to']) if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(u.searchParams.get(k) || '')) return res(400);
       const f = u.searchParams.get('features');
       return res(200, { trainingSessions: [{ identifier: 'x', startTime: '2026-11-04T07:21:00.000', hrAvg: 120, sport: 'RUNNING', exercises: [{ id: 1, ...(f ? { samples: { samples: [{ type: 'HEART_RATE', intervalMillis: 1000, values: [60, 61] }] }, zones: [{ type: 'ZONE_TYPE_HEART_RATE', zones: [{ lowerLimit: 50, higherLimit: 100, inZone: 'PT10S' }] }] } : {}) }] }] });
     }
@@ -58,7 +59,7 @@ test('senza connessione o senza credenziali: errori chiari, nessun fallback', as
 test('client dati: Bearer, parametri, features come lista; 401 = reauth', async () => {
   const { tk, f } = mk(); await tk.exchangeCode('buono', 'https://x/cb');
   const get = polarGet({ tokens: tk, fetchFn: f.fetchFn, sleep: async () => {} });
-  const r = await get('/training-sessions/list', { from: '2026-11-04', to: '2026-11-05', features: ['samples', 'zones'] });
+  const r = await get('/training-sessions/list', { from: '2026-11-04T00:00:00', to: '2026-11-05T00:00:00', features: ['samples', 'zones'] });
   assert.equal(r.trainingSessions.length, 1);
   const bad = mk({}, { dataStatus: 401 }); await bad.tk.exchangeCode('buono', 'https://x/cb');
   await assert.rejects(polarGet({ tokens: bad.tk, fetchFn: bad.f.fetchFn, sleep: async () => {} })('/training-sessions/list'), e => e.code === 'polar_reauth_required');

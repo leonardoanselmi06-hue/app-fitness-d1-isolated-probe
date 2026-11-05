@@ -5,7 +5,8 @@ export function shape(v, depth = 4) {
   if (typeof v === 'object') return depth ? Object.fromEntries(Object.keys(v).sort().map(k => [k, shape(v[k], depth - 1)])) : 'object';
   return typeof v;
 }
-const day = d => d.toISOString().slice(0, 10);
+// Polar v4 vuole data-ora ISO senza fuso né 'Z' (AAAA-MM-GGTHH:mm:ss); 'to' è esclusivo.
+const day = d => `${d.toISOString().slice(0, 10)}T00:00:00`;
 
 export async function probePolar(get, now = new Date()) {
   const to = new Date(now.getTime() + 86400000), from = new Date(now.getTime() - 60 * 86400000);
@@ -15,7 +16,7 @@ export async function probePolar(get, now = new Date()) {
   if (sessions.length) {
     const d0 = String(sessions[0].startTime ?? '').slice(0, 10); // giorno così come scritto da Polar
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d0)) { out.features = 'startTime non nel formato atteso'; return out; }
-    const f = await get('/training-sessions/list', { from: d0, to: day(new Date(Date.parse(`${d0}T00:00:00Z`) + 86400000)), features: ['samples', 'zones'] });
+    const f = await get('/training-sessions/list', { from: `${d0}T00:00:00`, to: day(new Date(Date.parse(`${d0}T00:00:00Z`) + 86400000)), features: ['samples', 'zones'] });
     const s = (f.trainingSessions ?? [])[0];
     out.features = s ? { exercise_shape: shape(s.exercises?.[0] ?? null, 5) } : 'nessuna sessione nel giorno scelto';
   }
