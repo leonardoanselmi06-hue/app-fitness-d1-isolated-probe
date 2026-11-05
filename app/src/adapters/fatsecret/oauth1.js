@@ -33,7 +33,8 @@ async function fail(res, step) {
 export class FatSecretTokens {
   constructor({ db, consumerKey, consumerSecret, fetchFn = (...a) => fetch(...a), now = () => Date.now() }) {
     if (!consumerKey || !consumerSecret) throw new AppError(503, 'fatsecret_unconfigured');
-    Object.assign(this, { db, consumerKey, consumerSecret, fetchFn, now });
+    // spazi/a capo incollati insieme al secret farebbero fallire la firma
+    Object.assign(this, { db, consumerKey: String(consumerKey).trim(), consumerSecret: String(consumerSecret).trim(), fetchFn, now });
   }
   async sign(method, url, params, token, tokenSecret, extraOauth) { return signedRequest({ method, url, params, consumerKey: this.consumerKey, consumerSecret: this.consumerSecret, token, tokenSecret, extraOauth }); }
   // 1) request token (il secret temporaneo resta in D1 cifrato, legato al token; scade dopo 15 minuti)
