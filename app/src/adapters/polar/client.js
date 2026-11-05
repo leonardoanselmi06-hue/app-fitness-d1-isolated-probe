@@ -5,7 +5,7 @@ export const POLAR_DATA = 'https://www.polaraccesslink.com/v4/data';
 
 export function polarGet({ tokens, fetchFn = (...a) => fetch(...a), sleep = ms => new Promise(r => setTimeout(r, ms)), retries = 3 }) {
   return async function get(path, params = {}) {
-    const qs = new URLSearchParams(); for (const [k, v] of Object.entries(params)) if (v != null) qs.set(k, Array.isArray(v) ? v.join(',') : String(v));
+    const qs = new URLSearchParams(); for (const [k, v] of Object.entries(params)) if (v != null) { if (Array.isArray(v)) for (const x of v) qs.append(k, String(x)); else qs.set(k, String(v)); }
     const url = `${POLAR_DATA}${path}${qs.size ? `?${qs}` : ''}`;
     for (let attempt = 0; ; attempt++) {
       let res;

@@ -69,7 +69,7 @@ test('probe: restituisce solo struttura, nessun valore', async () => {
   const out = await probePolar(polarGet({ tokens: tk, fetchFn: f.fetchFn, sleep: async () => {} }), new Date(T0));
   const txt = JSON.stringify(out); assert.equal(out.sessions, 1);
   for (const leak of ['RUNNING', '2026-11-04', 'x"', '"120', 'PT10S']) assert.ok(!txt.includes(leak), `valore trapelato: ${leak}`);
-  assert.ok(out.features.exercise_shape.samples); assert.deepEqual(shape([1, 2]), { array: 2, item: 'number' });
+  assert.ok(out.features.ripetuto.exercise_shape.samples); assert.deepEqual(shape([1, 2]), { array: 2, item: 'number' });
 });
 test('rotte: connect reindirizza con state in cookie; callback verifica lo state (anti-CSRF) e salva i token', async () => {
   const { db, f } = mk(); const env = { POLAR_CLIENT_ID: 'cid', POLAR_CLIENT_SECRET: 'csecret' };
