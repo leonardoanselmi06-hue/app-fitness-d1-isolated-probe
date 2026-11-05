@@ -88,8 +88,14 @@ object Collector {
             200 -> "OK: ${steps.length()} giorni di passi, ${weights.length()} pesi, ${sleep.length()} notti di sonno inviati." + (if (sleepPerm) "" else " (Sonno: accesso a Sleep as Android non concesso)") + (if (missingSleepCols.isNotEmpty()) " Colonne sonno non disponibili: ${missingSleepCols.joinToString(",")}." else "")
             401, 403 -> "Accesso rifiutato ($code): controlla Client ID/Secret e la policy in Cloudflare. Dettaglio: ${lastBody.take(160)}"
             503 -> "Il server non accetta ancora i dati (ricezione spenta)."
-            else -> "Errore del server ($code)."
+            else -> "Errore del server ($code). Dettaglio: ${lastBody.take(160)}"
         }
+    }
+
+    private fun numOrNull(v: Any?): Any? = when (v) {
+        is Long, is Double, is Int -> v
+        is String -> v.trim().toDoubleOrNull() ?: JSONObject.NULL
+        else -> JSONObject.NULL
     }
 
     private fun value(c: Cursor, i: Int): Any? = when (c.getType(i)) {
@@ -118,10 +124,10 @@ object Collector {
                 val end = (get("toTime") as? Long) ?: continue
                 if (end < start) continue
                 out.put(JSONObject().put("id", start.toString()).put("start_ms", start).put("end_ms", end)
-                    .put("latest_end_ms", get("latestToTime") as? Long ?: JSONObject.NULL).put("tz", (get("timezone") as? String) ?: JSONObject.NULL)
-                    .put("rating", get("rating") ?: JSONObject.NULL).put("quality", get("quality") ?: JSONObject.NULL).put("snore", get("snore") ?: JSONObject.NULL)
-                    .put("cycles", get("cycles") ?: JSONObject.NULL).put("len_adjust", get("lenAdjust") ?: JSONObject.NULL)
-                    .put("noise_level", get("noiseLevel") ?: JSONObject.NULL).put("length_raw", get("length") ?: JSONObject.NULL))
+                    .put("latest_end_ms", (get("latestToTime") as? Long) ?: JSONObject.NULL).put("tz", (get("timezone") as? String) ?: JSONObject.NULL)
+                    .put("rating", numOrNull(get("rating"))).put("quality", numOrNull(get("quality"))).put("snore", numOrNull(get("snore")))
+                    .put("cycles", numOrNull(get("cycles"))).put("len_adjust", numOrNull(get("lenAdjust")))
+                    .put("noise_level", numOrNull(get("noiseLevel"))).put("length_raw", numOrNull(get("length"))))
             }
         }
         return out
