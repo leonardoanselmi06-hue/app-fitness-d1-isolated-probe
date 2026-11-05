@@ -16,7 +16,11 @@ export function createApp({ db, auth, assets, jobs = {} }) {
     try {
       if (url.pathname === '/v1/health' && request.method === 'GET') return json(200, { ok: true });
       if (url.pathname.startsWith('/v1/')) {
-        const { subject } = await auth.authenticate(request); // fail-closed
+        const { subject, principal = 'owner' } = await auth.authenticate(request); // fail-closed
+        if (principal === 'device') { // il collector del telefono può SOLO inviare dati: nessuna lettura, nessun altro endpoint
+          if (url.pathname === '/v1/ingest/device' && request.method === 'POST' && jobs.device) return json(200, await jobs.device(request));
+          throw new AppError(403, 'forbidden');
+        }
         if (url.pathname.startsWith('/v1/polar/')) { if (!jobs.polar) throw new AppError(404, 'not_found'); return await jobs.polar(request); }
         if (url.pathname.startsWith('/v1/fatsecret/')) { if (!jobs.fatsecret) throw new AppError(404, 'not_found'); return await jobs.fatsecret(request); }
         if (url.pathname === '/v1/sync/lyfta' && request.method === 'POST') {
