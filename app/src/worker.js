@@ -5,6 +5,8 @@ import { createAuth } from './http/auth.js';
 import { runLyftaSync } from './jobs/lyfta-job.js';
 import { runPolarSync } from './jobs/polar-job.js';
 import { runFatSecretSync } from './jobs/fatsecret-job.js';
+import { deviceIngest } from './http/device-ingest.js';
+import { makeRawStore } from './storage/drive-rawstore.js';
 import { fatsecretRoutes } from './http/fatsecret-routes.js';
 import { polarRoutes } from './http/polar-routes.js';
 
@@ -12,7 +14,7 @@ export default {
   async fetch(request, env) {
     const auth = createAuth({ teamDomain: env.ACCESS_TEAM_DOMAIN, aud: env.ACCESS_AUD, ownerEmail: env.OWNER_EMAIL });
     const assets = env.ASSETS ? r => env.ASSETS.fetch(r) : undefined;
-    return createApp({ db: env.DB, auth, assets, jobs: { lyfta: () => runLyftaSync(env), polar: polarRoutes({ db: env.DB, env }), polarSync: () => runPolarSync(env), fatsecret: fatsecretRoutes({ db: env.DB, env }), fatsecretSync: () => runFatSecretSync(env) } })(request);
+    return createApp({ db: env.DB, auth, assets, jobs: { lyfta: () => runLyftaSync(env), polar: polarRoutes({ db: env.DB, env }), polarSync: () => runPolarSync(env), fatsecret: fatsecretRoutes({ db: env.DB, env }), fatsecretSync: () => runFatSecretSync(env), device: request => deviceIngest({ db: env.DB, raw: makeRawStore(env), enabled: env.DEVICE_INGEST_ENABLED === 'true' })(request) } })(request);
   },
   // Cron: sync automatico. Spento finché LYFTA_SYNC_ENABLED non è "true" (vedi lyfta-job.js).
   async scheduled(_event, env, ctx) {

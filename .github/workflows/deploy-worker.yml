@@ -19,6 +19,11 @@ on:
         type: choice
         options: [unchanged, "on", "off"]
         default: unchanged
+      device_ingest:
+        description: "Ricezione dal collector Android: unchanged = non toccare | on = accendi (dati reali, serve approvazione) | off = spegni"
+        type: choice
+        options: [unchanged, "on", "off"]
+        default: unchanged
 permissions:
   contents: read
 concurrency:
@@ -121,6 +126,11 @@ jobs:
             on)  printf 'true' | npx --no-install wrangler secret put FATSECRET_SYNC_ENABLED -c wrangler.generated.jsonc >/dev/null && echo "Sync FatSecret ACCESO (decisione utente)." | tee -a "$GITHUB_STEP_SUMMARY" ;;
             off) npx --no-install wrangler secret delete FATSECRET_SYNC_ENABLED -c wrangler.generated.jsonc >/dev/null 2>&1 || true; echo "Sync FatSecret SPENTO." | tee -a "$GITHUB_STEP_SUMMARY" ;;
             *)   echo "FATSECRET_SYNC_ENABLED non modificato." | tee -a "$GITHUB_STEP_SUMMARY" ;;
+          esac
+          case "${{ inputs.device_ingest }}" in
+            on)  printf 'true' | npx --no-install wrangler secret put DEVICE_INGEST_ENABLED -c wrangler.generated.jsonc >/dev/null && echo "Ricezione collector ACCESA (decisione utente)." | tee -a "$GITHUB_STEP_SUMMARY" ;;
+            off) npx --no-install wrangler secret delete DEVICE_INGEST_ENABLED -c wrangler.generated.jsonc >/dev/null 2>&1 || true; echo "Ricezione collector SPENTA." | tee -a "$GITHUB_STEP_SUMMARY" ;;
+            *)   echo "DEVICE_INGEST_ENABLED non modificato." | tee -a "$GITHUB_STEP_SUMMARY" ;;
           esac
 
       - name: Indirizzo del Worker
