@@ -1,8 +1,8 @@
 // Normalizzatore Lyfta -> record canonici 'training'. Contratto: Decision Register DEC-TRAIN-001/002/003 e doc 03.
 // ATTENZIONE: i nomi dei campi sono quelli documentati in Drive (workout id/title/body_weight/workout_perform_date/volume;
 // exercise_id/exercise_rest_time; set id/weight/reps/rir/duration/distance/set_type_id/is_completed).
-// Il campo del NOME esercizio NON è documentato: viene letto da candidati e marcato name_source;
-// va confermato su un payload reale (richiede approvazione: nessun dato personale nei test).
+// Il NOME esercizio è `excercise_name` (grafia legacy della documentazione ufficiale); gli altri candidati restano per tolleranza
+// e name_source registra quale è stato usato. Da confermare su payload reale con il workflow `lyfta-probe`.
 import { utcNaiveToInstant, localDate } from '../../core/time.js';
 
 export const ADAPTER_VERSION = 'lyfta-normalizer/0.1.0';
@@ -38,11 +38,11 @@ export function normalizeSet(s, ex, wi, ei, si) {
 
 export function normalizeExercise(ex, wi, ei) {
   const restRaw = num(ex.exercise_rest_time);
-  const nameKey = ['exercise_name', 'name', 'title'].find(k => !absent(ex[k]));
+  const nameKey = ['excercise_name', 'exercise_name', 'name', 'title'].find(k => !absent(ex[k]));
   return {
     exercise_id: num(ex.exercise_id),
     name: nameKey ? String(ex[nameKey]) : null,
-    name_source: nameKey ?? null, // UNVERIFIED: vedi nota in testa al file
+    name_source: nameKey ?? null, // vedi nota in testa al file
     type: absent(ex.exercise_type ?? ex.type) ? null : String(ex.exercise_type ?? ex.type),
     // exercise_rest_time è recupero CONFIGURATO, non eseguito: ×5 secondi (handoff §4)
     configured_rest_sec: restRaw == null ? null : restRaw * 5,
@@ -68,7 +68,7 @@ export function normalizeWorkout(w, wi = 0) {
       time_semantics: 'utc_naive_assumed', // VERIFIED_FOR_OBSERVED_CEST_DATES; DST PENDING
       // peso corporeo registrato da Lyfta: campo SEPARATO, mai fuso col carico delle serie
       user_body_weight_kg: num(w.body_weight),
-      source_volume: num(w.volume),
+      source_volume: num(w.total_volume ?? w.volume), // `total_volume` verificato su payload reale (probe 5 nov 2026); `volume` solo per le fixture storiche
       exercises: (w.exercises ?? []).map((ex, ei) => normalizeExercise(ex, wi, ei)),
     },
   };

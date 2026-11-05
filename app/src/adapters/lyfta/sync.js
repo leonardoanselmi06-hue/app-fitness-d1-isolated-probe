@@ -1,7 +1,8 @@
 // Sync Lyfta lato server (DEC-TRAIN-002): pull REST read-only con paginazione completa.
 // La COMPLETEZZA dello scope è calcolata qui, dal server, e mai dichiarata da un client (DEC-MODEL-009).
 // fetchPage(page) è iniettato: in produzione usa fetch + chiave API da secret; nei test, fixture sintetiche.
-// NOMI DEI CAMPI DI PAGINAZIONE: `pagination.{page,total,total_pages}` è un'ASSUNZIONE (UNVERIFIED) da confermare su payload reale.
+// Paginazione: campi al livello superiore `total_records`, `total_pages`, `current_page` (documentazione ufficiale https://my.lyfta.app/community/api, 5 novembre 2026).
+// Da confermare su payload reale con il workflow `lyfta-probe` (stampa solo la struttura, mai i valori).
 import { ingest } from '../../ingest/ledger.js';
 import { normalizeWorkout } from './normalize.js';
 
@@ -15,8 +16,8 @@ export async function pullAllWorkouts(fetchPage) {
     try { body = await fetchPage(page); } catch { return { workouts, complete: false, reason: 'fetch_error', page }; }
     const list = body?.workouts;
     if (!Array.isArray(list)) return { workouts, complete: false, reason: 'invalid_page', page };
-    total ??= body.pagination?.total ?? null;
-    totalPages ??= body.pagination?.total_pages ?? null;
+    total ??= body.total_records ?? null;
+    totalPages ??= body.total_pages ?? null;
     workouts.push(...list);
     if (totalPages == null) return { workouts, complete: false, reason: 'pagination_unknown', page };
     if (page >= totalPages) { complete = true; break; }
