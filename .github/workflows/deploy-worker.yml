@@ -9,6 +9,11 @@ on:
         type: choice
         options: [unchanged, "on", "off"]
         default: unchanged
+      polar_sync:
+        description: "Sync automatico Polar: unchanged = non toccare | on = accendi (dati reali, serve approvazione) | off = spegni"
+        type: choice
+        options: [unchanged, "on", "off"]
+        default: unchanged
 permissions:
   contents: read
 concurrency:
@@ -99,6 +104,11 @@ jobs:
             on)  printf 'true' | npx --no-install wrangler secret put LYFTA_SYNC_ENABLED -c wrangler.generated.jsonc >/dev/null && echo "Sync Lyfta ACCESO (decisione utente, DEC-GOV-004)." | tee -a "$GITHUB_STEP_SUMMARY" ;;
             off) npx --no-install wrangler secret delete LYFTA_SYNC_ENABLED -c wrangler.generated.jsonc >/dev/null 2>&1 || true; echo "Sync Lyfta SPENTO." | tee -a "$GITHUB_STEP_SUMMARY" ;;
             *)   echo "LYFTA_SYNC_ENABLED non modificato." | tee -a "$GITHUB_STEP_SUMMARY" ;;
+          esac
+          case "${{ inputs.polar_sync }}" in
+            on)  printf 'true' | npx --no-install wrangler secret put POLAR_SYNC_ENABLED -c wrangler.generated.jsonc >/dev/null && echo "Sync Polar ACCESO (decisione utente)." | tee -a "$GITHUB_STEP_SUMMARY" ;;
+            off) npx --no-install wrangler secret delete POLAR_SYNC_ENABLED -c wrangler.generated.jsonc >/dev/null 2>&1 || true; echo "Sync Polar SPENTO." | tee -a "$GITHUB_STEP_SUMMARY" ;;
+            *)   echo "POLAR_SYNC_ENABLED non modificato." | tee -a "$GITHUB_STEP_SUMMARY" ;;
           esac
 
       - name: Indirizzo del Worker
