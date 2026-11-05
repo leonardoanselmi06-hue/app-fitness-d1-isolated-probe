@@ -22,6 +22,7 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 object Collector {
+    @Volatile private var lastBody: String = ""
     // Permessi minimi: sola lettura di passi e peso (+ lettura in background e storico, se il telefono li supporta).
     val permissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
@@ -72,7 +73,7 @@ object Collector {
         val code = post(cfg, body)
         when (code) {
             200 -> "OK: ${steps.length()} giorni di passi, ${weights.length()} pesi inviati."
-            401, 403 -> "Accesso rifiutato ($code): controlla Client ID/Secret e la policy in Cloudflare."
+            401, 403 -> "Accesso rifiutato ($code): controlla Client ID/Secret e la policy in Cloudflare. Dettaglio: ${lastBody.take(160)}"
             503 -> "Il server non accetta ancora i dati (ricezione spenta)."
             else -> "Errore del server ($code)."
         }
@@ -86,7 +87,9 @@ object Collector {
             c.setRequestProperty("CF-Access-Client-Id", cfg.clientId)
             c.setRequestProperty("CF-Access-Client-Secret", cfg.clientSecret)
             c.outputStream.use { it.write(body.toByteArray()) }
-            c.responseCode
+            val rc = c.responseCode
+            lastBody = try { (if (rc >= 400) c.errorStream else c.inputStream)?.bufferedReader()?.readText()?.replace(Regex("\\s+"), " ") ?: "" } catch (e: Exception) { "" }
+            rc
         } catch (e: Exception) { -1 } finally { c.disconnect() }
     }
 }

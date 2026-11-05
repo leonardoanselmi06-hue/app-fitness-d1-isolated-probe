@@ -54,3 +54,9 @@ test('validazione: campi vietati, tipi, intervalli, duplicati, dimensione; spent
   assert.throws(() => parseDeviceBody('x'.repeat(1024 * 1024 + 1), 0), e => e.code === 'payload_too_large'); assert.throws(() => parseDeviceBody('{no', 0), e => e.code === 'invalid_json');
   const off = appFor(newDb(), false); assert.equal((await off(post(await jwt({ common_name: 'c' }), GOOD))).status, 503);
 });
+test('service token con email vuota: trattato come device; senza common_name: 403 con soli nomi dei claim', async () => {
+  const app = appFor(newDb());
+  assert.equal((await app(post(await jwt({ common_name: 'c', email: '' }), GOOD))).status, 200);
+  const r = await app(post(await jwt({ foo: 'SEGRETO-VALORE' }), GOOD)); assert.equal(r.status, 403);
+  const t = JSON.stringify(await r.json()); assert.ok(t.includes('claim_names')); assert.ok(!t.includes('SEGRETO-VALORE'));
+});
