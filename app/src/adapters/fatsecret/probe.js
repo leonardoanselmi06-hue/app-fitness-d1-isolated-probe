@@ -18,3 +18,21 @@ export async function probeFatSecret(get, now = new Date()) {
   out.weights = await step(async () => shape(await get('/weight/month/v2', { date: today })));
   return out;
 }
+
+// Autodiagnosi della firma, senza dati utente: chiamata a 2 gambe (solo consumer key/secret) e request_token su entrambi gli host noti.
+export async function selfTest(tokens, fetchFn) {
+  const one = async (method, url, params, extra) => {
+    try {
+      const r = await tokens.sign(method, url, params, null, '', extra);
+      const res = await fetchFn(r.url, { method, headers: r.headers });
+      const t = (await res.text()).replace(/oauth_[a-z_]+=[^&\s"<]*/g, 'oauth_…').slice(0, 140);
+      return { status: res.status, ok: res.ok, cloudflare: !!res.headers?.get?.('cf-mitigated'), message: res.ok ? null : t };
+    } catch (e) { return { errore: e.code ?? 'errore' }; }
+  };
+  return {
+    key_len: tokens.consumerKey.length, secret_len: tokens.consumerSecret.length,
+    api_2legged: await one('GET', 'https://platform.fatsecret.com/rest/foods/search/v1', { search_expression: 'apple', format: 'json', max_results: '1' }),
+    request_token_authentication_host: await one('POST', 'https://authentication.fatsecret.com/oauth/request_token', {}, { oauth_callback: 'oob' }),
+    request_token_www_host: await one('POST', 'https://www.fatsecret.com/oauth/request_token', {}, { oauth_callback: 'oob' }),
+  };
+}

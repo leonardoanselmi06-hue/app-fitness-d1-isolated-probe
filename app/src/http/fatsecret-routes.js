@@ -1,7 +1,7 @@
 // Rotte FatSecret sotto /v1/fatsecret (dietro Cloudflare Access): connect, callback, status, probe. Fail-closed.
 import { AppError } from '../core/errors.js';
 import { FatSecretTokens, fatsecretGet } from '../adapters/fatsecret/oauth1.js';
-import { probeFatSecret } from '../adapters/fatsecret/probe.js';
+import { probeFatSecret, selfTest } from '../adapters/fatsecret/probe.js';
 
 const COOKIE = 'af_fs_req';
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
@@ -26,6 +26,7 @@ export function fatsecretRoutes({ db, env, fetchFn, now }) {
       return new Response(null, { status: 302, headers: { location: '/?fatsecret=connesso', 'set-cookie': `${COOKIE}=; Max-Age=0; Path=/v1/fatsecret`, 'cache-control': 'no-store' } });
     }
     if (u.pathname === '/v1/fatsecret/probe') { const t = tokens(); return json(200, await probeFatSecret(fatsecretGet({ tokens: t, fetchFn }), new Date(now ? now() : Date.now()))); }
+    if (u.pathname === '/v1/fatsecret/selftest') return json(200, await selfTest(tokens(), fetchFn ?? ((...a) => fetch(...a))));
     throw new AppError(404, 'not_found');
   };
 }
