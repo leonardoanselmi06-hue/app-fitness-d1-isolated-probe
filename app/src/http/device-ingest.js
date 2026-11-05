@@ -37,7 +37,7 @@ export function parseDeviceBody(text, nowMs) {
     insist(z && Number.isInteger(z.start_ms) && z.start_ms > 1.4e12 && z.start_ms <= nowMs + 36 * 3600 * 1000 && z.id === String(z.start_ms) && !seenZ.has(z.id), 422, 'invalid_sleep'); seenZ.add(z.id);
     insist(Number.isInteger(z.end_ms) && z.end_ms >= z.start_ms && z.end_ms - z.start_ms <= 36 * 3600 * 1000, 422, 'invalid_sleep');
     insist(z.latest_end_ms == null || Number.isInteger(z.latest_end_ms), 422, 'invalid_sleep');
-    insist(z.tz == null || (typeof z.tz === 'string' && /^[A-Za-z0-9_/+-]{1,64}$/.test(z.tz)), 422, 'invalid_sleep');
+    insist(z.tz == null || (typeof z.tz === 'string' && /^[A-Za-z0-9_/+:.-]{1,64}$/.test(z.tz)), 422, 'invalid_sleep');
     for (const k of ['rating', 'quality', 'snore', 'cycles', 'len_adjust', 'noise_level', 'length_raw']) insist(numOrNull(z[k]), 422, 'invalid_sleep');
   }
   return { device_id: b.device_id, steps, weights, sleep };
