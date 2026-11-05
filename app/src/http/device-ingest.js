@@ -1,7 +1,7 @@
 // Ingest dal collector Android (Health Connect): POST /v1/ingest/device, solo con service token Cloudflare Access (principal 'device').
 // Il server NON si fida del client: valida tipi e intervalli, ricava soggetto/ora/request_id da sé, non accetta MAI scope_complete
 // (una finestra letta dal telefono non è verificabile come completa => nessuna cancellazione). Il corpo ricevuto è l'artefatto RAW (Drive).
-// Corpo: { device_id, steps:[{date:'AAAA-MM-GG', count, origins:[pkg]}], weights:[{id, time, kg, origin}] }
+// Corpo: { device_id, steps:[{date:'AAAA-MM-GG', count, origins:[pkg]}], weights:[{id, time, kg, origin}], sleep:[{id, start_ms, end_ms, ...}] }
 import { AppError, insist } from '../core/errors.js';
 import { ingest } from '../ingest/ledger.js';
 import { validIsoInstant, localDate } from '../core/time.js';
@@ -18,8 +18,8 @@ export function parseDeviceBody(text, nowMs) {
   insist(b && typeof b === 'object' && !Array.isArray(b), 422, 'invalid_body');
   insist(!('scope_complete' in b) && !('subject' in b), 422, 'forbidden_field'); // il client non decide completezza né soggetto
   insist(typeof b.device_id === 'string' && ID.test(b.device_id), 422, 'invalid_device');
-  const steps = b.steps ?? [], weights = b.weights ?? [];
-  insist(Array.isArray(steps) && Array.isArray(weights) && steps.length + weights.length > 0 && steps.length <= MAX_ITEMS && weights.length <= MAX_ITEMS, 422, 'invalid_items');
+  const steps = b.steps ?? [], weights = b.weights ?? [], sleep = b.sleep ?? [];
+  insist(Array.isArray(steps) && Array.isArray(weights) && Array.isArray(sleep) && steps.length + weights.length + sleep.length > 0 && steps.length <= MAX_ITEMS && weights.length <= MAX_ITEMS && sleep.length <= MAX_ITEMS, 422, 'invalid_items');
   const maxDay = new Date(nowMs + 36 * 3600 * 1000).toISOString().slice(0, 10), seenS = new Set(), seenW = new Set();
   for (const s of steps) {
     insist(s && typeof s.date === 'string' && DAY.test(s.date) && s.date <= maxDay && s.date >= '2015-01-01' && !seenS.has(s.date), 422, 'invalid_steps'); seenS.add(s.date);
@@ -32,7 +32,15 @@ export function parseDeviceBody(text, nowMs) {
     insist(num(w.kg) != null && w.kg >= 20 && w.kg <= 400, 422, 'invalid_weight');
     insist(w.origin == null || (typeof w.origin === 'string' && PKG.test(w.origin)), 422, 'invalid_weight');
   }
-  return { device_id: b.device_id, steps, weights };
+  const seenZ = new Set(), numOrNull = v => v == null || num(v) != null;
+  for (const z of sleep) {
+    insist(z && Number.isInteger(z.start_ms) && z.start_ms > 1.4e12 && z.start_ms <= nowMs + 36 * 3600 * 1000 && z.id === String(z.start_ms) && !seenZ.has(z.id), 422, 'invalid_sleep'); seenZ.add(z.id);
+    insist(Number.isInteger(z.end_ms) && z.end_ms >= z.start_ms && z.end_ms - z.start_ms <= 36 * 3600 * 1000, 422, 'invalid_sleep');
+    insist(z.latest_end_ms == null || Number.isInteger(z.latest_end_ms), 422, 'invalid_sleep');
+    insist(z.tz == null || (typeof z.tz === 'string' && /^[A-Za-z0-9_/+-]{1,64}$/.test(z.tz)), 422, 'invalid_sleep');
+    for (const k of ['rating', 'quality', 'snore', 'cycles', 'len_adjust', 'noise_level', 'length_raw']) insist(numOrNull(z[k]), 422, 'invalid_sleep');
+  }
+  return { device_id: b.device_id, steps, weights, sleep };
 }
 
 export function deviceIngest({ db, raw, now = () => new Date().toISOString(), enabled = false }) {
@@ -50,6 +58,14 @@ export function deviceIngest({ db, raw, now = () => new Date().toISOString(), en
     if (b.weights.length) {
       out.weights = await ingest({ db, raw, now }, { ...base, scope_id: 'weight', request_id: crypto.randomUUID(), artifact: JSON.stringify(b.weights),
         records: b.weights.map(w => ({ id: `weight:${w.id}`, domain: 'body', observed_at: new Date(w.time).toISOString(), payload: { metric: 'body_weight_kg', kg: w.kg, time: new Date(w.time).toISOString(), local_date: localDate(w.time), origin: w.origin ?? null } })) });
+    }
+    if (b.sleep.length) {
+      out.sleep = await ingest({ db, raw, now }, { ...base, source_system: 'sleep_as_android', scope_id: 'sleep', request_id: crypto.randomUUID(), artifact: JSON.stringify(b.sleep),
+        records: b.sleep.map(z => ({ id: `sleep:${z.id}`, domain: 'sleep', observed_at: new Date(z.start_ms).toISOString(), payload: {
+          start_at: new Date(z.start_ms).toISOString(), end_at: new Date(z.end_ms).toISOString(), local_date: localDate(new Date(z.end_ms).toISOString()), timezone: z.tz ?? null,
+          duration_min: Math.round((z.end_ms - z.start_ms) / 60000), latest_end_at: z.latest_end_ms ? new Date(z.latest_end_ms).toISOString() : null,
+          rating: z.rating ?? null, quality: z.quality ?? null, snore: z.snore ?? null, cycles: z.cycles ?? null, len_adjust_raw: z.len_adjust ?? null, noise_level: z.noise_level ?? null, length_raw: z.length_raw ?? null,
+          identity: 'provider_startTime', time_semantics: 'epoch_ms' } })) });
     }
     return { ok: true, ...out };
   };
