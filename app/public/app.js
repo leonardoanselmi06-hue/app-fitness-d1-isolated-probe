@@ -1,6 +1,8 @@
 import { esc, trainingList, weightSummary, weightChart, weightRecent, bodyFatBlock } from '/views.js';
 import { nutritionSummary, nutritionDays, sleepSummary, sleepChart, sleepList, stepsSummary, stepsChart, stepsList } from '/views-daily.js';
 import { coachHeader, coachActions, coachInsights, coachTests } from '/coach.js';
+import { planHeader, planScheda, planNotes, planPhases } from '/plan.js';
+import { setPlan, bindPlan } from '/plan-ui.js';
 const $ = id => document.getElementById(id);
 const LABEL = { training: 'Allenamento', body: 'Composizione', nutrition: 'Alimentazione', activity: 'Attività', sleep: 'Sonno', cardio: 'Cardio', recovery: 'Recupero', program: 'Programma' };
 
@@ -89,6 +91,8 @@ const VIEWS = {
     render: d => [stepsSummary(d), stepsChart(d), stepsList(d)] },
   coach: { path: '/v1/coach/review', ids: ['coachHeader', 'coachActions', 'coachInsights', 'coachTests'],
     render: d => [coachHeader(d), coachActions(d), coachInsights(d), coachTests(d)] },
+  piano: { path: '/v1/plan', ids: ['planHeader', 'planScheda', 'planNotes', 'planPhases'],
+    render: d => { setPlan(d); return [planHeader(d), planScheda(d), planNotes(d), planPhases(d)]; } },
 };
 async function loadView(name) {
   const v = VIEWS[name];
@@ -106,8 +110,10 @@ for (const [name, v] of Object.entries(VIEWS).filter(([, x]) => x.chips)) {
   });
 }
 
+bindPlan({ root: $('view-piano'), dialog: $('planDialog'), reload: () => loadView('piano') });
+
 // ---- Navigazione a schede (hash) ----
-const TABS = ['home', 'allenamenti', 'peso', 'alimentazione', 'sonno', 'passi', 'coach'], loadedTabs = new Set();
+const TABS = ['home', 'allenamenti', 'peso', 'alimentazione', 'sonno', 'passi', 'coach', 'piano'], loadedTabs = new Set();
 function route() {
   const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
   for (const v of document.querySelectorAll('.view')) v.hidden = v.dataset.view !== tab;
