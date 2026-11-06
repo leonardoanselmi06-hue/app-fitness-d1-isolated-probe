@@ -6,7 +6,7 @@
 import { getPhase, listVersions, effective } from './store.js';
 import { slug } from './schema.js';
 import { loadSessionsBetween } from '../coach/data.js';
-import { classify, countsAsSet } from '../coach/muscles.js';
+import { classify, countsAsSet, isCardio, cardioMinutes } from '../coach/muscles.js';
 import { analyzeSessions } from '../coach/rules-training.js';
 import { addDays, mondayOf, mean, round } from '../coach/stats.js';
 
@@ -26,6 +26,12 @@ export function compareSession(presc, exercises) {
   const used = new Set(), rows = [];
   for (const p of presc) {
     const k = slug(p.exercise), d = done.get(k); used.add(k);
+    if (isCardio(p.exercise) || p.duration_min != null) { // attività secondaria: si confrontano i minuti, non le serie
+      const ex = exercises.filter(e => slug(String(e.name ?? '')) === k), min = ex.length ? round(ex.reduce((a, e) => a + (cardioMinutes(e) ?? 0), 0), 1) : 0, any = ex.some(e => (e.sets ?? []).some(x => !x.warmup && (x.duration_sec > 0 || x.distance > 0)));
+      const target = p.duration_min ?? null, status = !any ? 'saltato' : target != null && min < target * 0.8 ? 'parziale' : 'completo';
+      rows.push({ exercise: p.exercise, kind: 'cardio', minutes_prescribed: target, minutes_done: any ? (min > 0 ? min : null) : 0, status, sets_prescribed: 0, sets_done: 0, reps: null, rir_target: null, rir_logged: null, rir_sets: 0, rir_diff: null, rest_prescribed: null, rest_logged: null, rest_match: null, replaced_by: null, _rirDiffs: [] });
+      continue;
+    }
     const sets = d ? d.sets : [], n = sets.length;
     const lo = p.reps_min ?? 0, hi = p.reps_max ?? Infinity, hasRange = p.reps_min != null || p.reps_max != null;
     const reps = sets.filter(s => typeof s.reps === 'number' && s.reps > 0);
@@ -38,7 +44,7 @@ export function compareSession(presc, exercises) {
       _rirDiffs: p.rir != null ? rirs.map(r => r - p.rir) : [],
     });
   }
-  let extras = [...done.entries()].filter(([k, d]) => !used.has(k) && d.muscle !== 'ignore' && d.sets.length > 0).map(([, d]) => ({ exercise: d.name, sets: d.sets.length, muscle: d.muscle }));
+  let extras = [...done.entries()].filter(([k, d]) => !used.has(k) && d.muscle !== 'ignore' && !isCardio(d.name) && d.sets.length > 0).map(([, d]) => ({ exercise: d.name, sets: d.sets.length, muscle: d.muscle }));
   for (const r of rows) {
     if (r.status !== 'saltato') continue;
     const m = muscleOf(r.exercise); if (!m) continue;
@@ -61,13 +67,25 @@ export function computeAdherence({ phase, versions, sessions, start, last }) {
     const presc = []; for (const vs of rxByDay.get(ds) ?? []) { const rv = effective(vs, s.date); if (rv && !rv.data.removed) presc.push(rv.data); }
     presc.sort((a, b) => a.order - b.order || a.exercise.localeCompare(b.exercise));
     const { rows, extras } = compareSession(presc, s.exercises);
+    const secondary = rows.length > 0 && rows.every(r => r.kind === 'cardio');
+    if (secondary) {
+      const mp = rows.reduce((a, r) => a + (r.minutes_prescribed ?? 0), 0), md = rows.reduce((a, r) => a + Math.min(r.minutes_done ?? 0, r.minutes_prescribed ?? (r.minutes_done ?? 0)), 0), any = rows.some(r => r.status !== 'saltato');
+      matched.push({ date: s.date, title: s.title, day: dv.data.label, secondary: true, completion_pct: mp > 0 ? pct(md, mp) : (any ? 100 : 0), minutes_prescribed: mp || null, minutes_done: round(rows.reduce((a, r) => a + (r.minutes_done ?? 0), 0), 1), sets_prescribed: 0, sets_done: 0, exercises: rows, extras });
+      continue;
+    }
     const sp = rows.reduce((a, r) => a + r.sets_prescribed, 0), sd = rows.reduce((a, r) => a + Math.min(r.sets_done, r.sets_prescribed), 0);
     matched.push({ date: s.date, title: s.title, day: dv.data.label, completion_pct: pct(sd, sp), sets_prescribed: sp, sets_done: sd, exercises: rows, extras });
   }
   // Totali
   let sp = 0, sd = 0, repsIn = 0, repsAll = 0, restOk = 0, restAll = 0, subs = 0, skipped = 0, partial = 0; const rirDiffs = [];
   const perDay = new Map(), perEx = new Map();
+  const sec = { sessions: 0, minutes_done: 0, minutes_prescribed: 0, skipped: 0 };
   for (const m of matched) {
+    if (m.secondary) {
+      sec.sessions++; sec.minutes_done += m.minutes_done ?? 0; sec.minutes_prescribed += m.minutes_prescribed ?? 0; sec.skipped += m.exercises.filter(r => r.status === 'saltato').length;
+      const d = perDay.get(m.day) ?? perDay.set(m.day, { day: m.day, secondary: true, sessions: 0, last_date: null, sp: 0, sd: 0 }).get(m.day);
+      d.sessions++; d.last_date = m.date; d.sp += m.minutes_prescribed ?? 0; d.sd += Math.min(m.minutes_done ?? 0, m.minutes_prescribed ?? (m.minutes_done ?? 0)); continue;
+    }
     const d = perDay.get(m.day) ?? perDay.set(m.day, { day: m.day, sessions: 0, last_date: null, sp: 0, sd: 0 }).get(m.day);
     d.sessions++; d.last_date = m.date; d.sp += m.sets_prescribed; d.sd += m.sets_done; sp += m.sets_prescribed; sd += m.sets_done;
     for (const r of m.exercises) {
@@ -80,14 +98,18 @@ export function computeAdherence({ phase, versions, sessions, start, last }) {
     }
   }
   for (const m of matched) for (const r of m.exercises) delete r._rirDiffs;
-  const per_day = [...perDay.values()].map(d => ({ day: d.day, sessions: d.sessions, last_date: d.last_date, completion_pct: pct(d.sd, d.sp) })).sort((a, b) => a.day.localeCompare(b.day, 'it', { numeric: true }));
+  const per_day = [...perDay.values()].map(d => ({ day: d.day, ...(d.secondary ? { secondary: true } : {}), sessions: d.sessions, last_date: d.last_date, completion_pct: pct(d.sd, d.sp) })).sort((a, b) => a.day.localeCompare(b.day, 'it', { numeric: true }));
   const per_exercise = [...perEx.values()].map(e => ({ day: e.day, exercise: e.exercise, exposures: e.exposures, completion_pct: pct(e.sd, e.sp), skipped: e.skipped, reps_in_range_pct: pct(e.repsIn, e.repsAll), rir_diff: e.rir.length ? round(mean(e.rir), 1) : null, rest_match_pct: pct(e.restOk, e.restAll) }))
     .sort((a, b) => (a.completion_pct ?? 101) - (b.completion_pct ?? 101) || b.exposures - a.exposures || a.exercise.localeCompare(b.exercise));
+  // Cardio registrato in Lyfta nel periodo (in scheda o no): sedute e minuti, anche per settimana. Non conta come lavoro di forza.
+  const cardioSessions = sessions.filter(x => x.date >= start && x.date <= last).map(x => ({ date: x.date, title: x.title, minutes: round(x.exercises.filter(e => isCardio(e.name)).reduce((a, e) => a + (cardioMinutes(e) ?? 0), 0), 1), has: x.exercises.some(e => isCardio(e.name)) })).filter(x => x.has);
+  const spanWeeks = Math.max(1, (Date.parse(`${last}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000 / 7 + 1 / 7);
+  const cardio = { sessions: cardioSessions.length, minutes: round(cardioSessions.reduce((a, x) => a + x.minutes, 0), 0), sessions_per_week: round(cardioSessions.length / spanWeeks, 1), minutes_per_week: round(cardioSessions.reduce((a, x) => a + x.minutes, 0) / spanWeeks, 0), recent: cardioSessions.slice(-6).map(({ date, title, minutes }) => ({ date, title, minutes: minutes || null })), note: 'Minuti = somma delle durate registrate in Lyfta; la distanza non è usata (unità non documentata).' };
   const planDays = []; for (const [k, vs] of g) if (k.startsWith('day:')) { const v = effective(vs, last) ?? vs.at(-1); if (v && !v.data.removed) planDays.push(v.data.label); }
   const done = new Set(matched.map(m => m.day));
-  const weeks = []; for (let w = mondayOf(start); w <= last; w = addDays(w, 7)) weeks.push({ week_start: w, sessions: matched.filter(m => m.date >= w && m.date < addDays(w, 7)).length, partial: w < start || addDays(w, 6) > last });
+  const weeks = []; for (let w = mondayOf(start); w <= last; w = addDays(w, 7)) weeks.push({ week_start: w, sessions: matched.filter(m => !m.secondary && m.date >= w && m.date < addDays(w, 7)).length, partial: w < start || addDays(w, 6) > last });
   return {
-    range: { from: start, to: last }, plan_days: planDays.length,
+    range: { from: start, to: last }, plan_days: planDays.length, cardio, secondary: { ...sec, minutes_done: round(sec.minutes_done, 0), minutes_prescribed: sec.minutes_prescribed || null, completion_pct: pct(Math.min(sec.minutes_done, sec.minutes_prescribed || sec.minutes_done), sec.minutes_prescribed) },
     sessions: { matched: matched.length, unmatched_strength: [...unmatched.values()].reduce((a, b) => a + b, 0), unmatched_other: otherUnmatched },
     sets: { prescribed: sp, done: sd, completion_pct: pct(sd, sp) },
     exercises: { skipped, partial, substituted: subs },
@@ -101,7 +123,7 @@ export function computeAdherence({ phase, versions, sessions, start, last }) {
 }
 
 /** Versione compatta per il report di fase (senza dettaglio delle sedute). */
-export const adherenceSummary = a => ({ sessions: a.sessions, sets: a.sets, exercises: a.exercises, reps_in_range_pct: a.reps_in_range_pct, rir_diff_avg: a.rir_diff_avg, rest_match_pct: a.rest_match_pct, days_never_done: a.days_never_done, per_day: a.per_day, worst_exercises: a.per_exercise.filter(e => e.completion_pct != null && e.completion_pct < 100).slice(0, 8) });
+export const adherenceSummary = a => ({ cardio: a.cardio, secondary: a.secondary, sessions: a.sessions, sets: a.sets, exercises: a.exercises, reps_in_range_pct: a.reps_in_range_pct, rir_diff_avg: a.rir_diff_avg, rest_match_pct: a.rest_match_pct, days_never_done: a.days_never_done, per_day: a.per_day, worst_exercises: a.per_exercise.filter(e => e.completion_pct != null && e.completion_pct < 100).slice(0, 8) });
 
 /** Vista per la PWA: fase richiesta (o attiva). 3 query D1 in tutto. */
 export async function adherenceView(db, subject, { phaseId, today }) {

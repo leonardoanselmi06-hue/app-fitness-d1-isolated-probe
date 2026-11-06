@@ -4,13 +4,13 @@ import { esc, shortDate, fullDate } from './views.js';
 export const fmtRest = s => (s == null ? '—' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`);
 const fmtRir = r => (r == null ? '—' : String(r).replace('.', ','));
 const reps = e => (e.reps_min == null && e.reps_max == null ? null : e.reps_min === e.reps_max || e.reps_max == null ? `${e.reps_min}` : e.reps_min == null ? `${e.reps_max}` : `${e.reps_min}–${e.reps_max}`);
-export const rxLine = e => [`${e.sets} serie${reps(e) ? ` × ${reps(e)}` : ''}`, e.rir == null ? null : `RIR ${fmtRir(e.rir)}`, e.rest_sec == null ? null : `rec ${fmtRest(e.rest_sec)}`, e.method].filter(Boolean).join(' · ');
+export const rxLine = e => [e.duration_min != null ? `${e.sets > 1 ? `${e.sets} × ` : ''}${e.duration_min} min` : `${e.sets} serie${reps(e) ? ` × ${reps(e)}` : ''}`, e.rir == null ? null : `RIR ${fmtRir(e.rir)}`, e.rest_sec == null ? null : `rec ${fmtRest(e.rest_sec)}`, e.method].filter(Boolean).join(' · ');
 const dayBefore = iso => new Date(Date.parse(`${iso}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
 const btn = (act, label, attrs = '', cls = 'sec') => `<button type="button" class="pbtn ${cls}" data-act="${act}" ${attrs}>${esc(label)}</button>`;
 
 // Differenze tra due versioni (per lo storico): "recupero 2:30 → 3:00".
 const FIELDS = {
-  rx: [['sets', 'serie', v => v], ['reps', 'ripetizioni', (_, d) => reps(d)], ['rir', 'RIR', fmtRir], ['rest_sec', 'recupero', fmtRest], ['method', 'metodo', v => v], ['note', 'nota', v => v]],
+  rx: [['sets', 'serie', v => v], ['reps', 'ripetizioni', (_, d) => reps(d)], ['rir', 'RIR', fmtRir], ['rest_sec', 'recupero', fmtRest], ['duration_min', 'durata (min)', v => v], ['method', 'metodo', v => v], ['note', 'nota', v => v]],
   phase: [['name', 'nome', v => v], ['goal', 'obiettivo', v => v], ['goal_type', 'tipo di obiettivo', v => v], ['targets', 'target', v => targetsLine(v)], ['method', 'metodologia', v => v]],
   note: [['date', 'data', v => v], ['category', 'categoria', v => v], ['title', 'titolo', v => v], ['text', 'testo', v => v]],
 };
