@@ -67,7 +67,7 @@ test('sonno: notti in D1 come domain sleep (source sleep_as_android), identità 
   const rows = await listCanonical(db, 'owner', 'sleep'); assert.equal(rows.length, 1); assert.equal(rows[0].payload.duration_min, 450); assert.equal(rows[0].payload.snore, null); assert.equal(rows[0].payload.short, false);
   const nap = { ...night, id: '1793100000000', start_ms: 1793100000000, end_ms: 1793100000000 + 32 * 60 * 1000 };
   await app(post(dev, { device_id: 'p1', sleep: [night, nap] })); const all = await listCanonical(db, 'owner', 'sleep'); assert.equal(all.length, 2); assert.equal(all.find(r => r.payload.duration_min === 32).payload.short, true);
-  await app(post(dev, { device_id: 'p1', sleep: [night] })); assert.equal((await listCanonical(db, 'owner', 'sleep')).length, 1);
+  await app(post(dev, { device_id: 'p1', sleep: [night] })); assert.equal((await listCanonical(db, 'owner', 'sleep')).length, 2); // la notte breve resta: il client non cancella
   const bad = b => { try { parseDeviceBody(JSON.stringify({ device_id: 'p', sleep: [b] }), Date.parse(NOWISO())); return null; } catch (e) { return e.code; } };
   assert.equal(bad({ ...night, id: '5' }), 'invalid_sleep'); assert.equal(bad({ ...night, end_ms: night.start_ms - 1 }), 'invalid_sleep'); assert.equal(bad({ ...night, end_ms: night.start_ms + 40 * 3600 * 1000 }), 'invalid_sleep');
   assert.equal(bad({ ...night, rating: 'alto' }), 'invalid_sleep'); assert.equal(bad({ ...night, tz: 'a b' }), 'invalid_sleep'); assert.equal(bad({ ...night, start_ms: 5, id: '5' }), 'invalid_sleep');
