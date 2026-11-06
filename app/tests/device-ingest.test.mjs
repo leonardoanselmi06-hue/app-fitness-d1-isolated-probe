@@ -72,3 +72,14 @@ test('sonno: notti in D1 come domain sleep (source sleep_as_android), identità 
   assert.equal(bad({ ...night, id: '5' }), 'invalid_sleep'); assert.equal(bad({ ...night, end_ms: night.start_ms - 1 }), 'invalid_sleep'); assert.equal(bad({ ...night, end_ms: night.start_ms + 40 * 3600 * 1000 }), 'invalid_sleep');
   assert.equal(bad({ ...night, rating: 'alto' }), 'invalid_sleep'); assert.equal(bad({ ...night, tz: 'a b' }), 'invalid_sleep'); assert.equal(bad({ ...night, start_ms: 5, id: '5' }), 'invalid_sleep');
 });
+test('pesate escluse dal proprietario: tombstone del record già presente e filtro agli invii successivi', async () => {
+  const db = newDb(), app = appFor(db), dev = await jwt({ common_name: 'c' });
+  const w = (id, time, kg) => ({ id, time, kg, origin: 'com.renpho.health' });
+  const A = w('a', '2026-10-17T19:11:56Z', 75.3), B = w('b', '2026-10-31T09:44:09Z', 71.85);
+  await app(post(dev, { device_id: 'p1', weights: [A, B] })); assert.equal((await listCanonical(db, 'owner', 'body')).length, 2);
+  await db.prepare("INSERT INTO meta (name, value) VALUES ('excluded_weights', ?)").bind(JSON.stringify(['2026-10-17T19:11:56.000Z'])).run();
+  const r = await (await app(post(dev, { device_id: 'p1', weights: [A, B] }))).json(); assert.equal(r.weights.deleted, 1);
+  let rows = await listCanonical(db, 'owner', 'body'); assert.equal(rows.length, 1); assert.equal(rows[0].payload.kg, 71.85);
+  const C = w('c', '2026-11-06T07:08:29Z', 73.6);
+  await app(post(dev, { device_id: 'p1', weights: [A, B, C] })); rows = await listCanonical(db, 'owner', 'body'); assert.equal(rows.length, 2); // A non ricompare
+});
