@@ -3,10 +3,12 @@
 import { MUSCLES } from './muscles.js';
 
 // Tipo di obiettivo della fase → ritmo di peso e proteine indicativi (indicazioni generali, non prescrizioni: ogni valore resta sovrascrivibile dalla fase).
-export const GOAL_TYPES = Object.freeze(['massa', 'mantenimento', 'definizione']);
-export const GOAL_LABEL = Object.freeze({ massa: 'Massa', mantenimento: 'Mantenimento', definizione: 'Definizione' });
+export const GOAL_TYPES = Object.freeze(['massa', 'forza', 'mantenimento', 'definizione']);
+export const GOAL_LABEL = Object.freeze({ massa: 'Massa', forza: 'Forza', mantenimento: 'Mantenimento', definizione: 'Definizione' });
 export const GOAL_PRESETS = Object.freeze({
   massa: Object.freeze({ weight_pct_week: Object.freeze({ min: 0.25, max: 0.5 }) }),
+  // Forza: volume per muscolo più contenuto, peso stabile o in leggero aumento; i carichi sui fondamentali contano più delle serie totali.
+  forza: Object.freeze({ weight_pct_week: Object.freeze({ min: 0, max: 0.25 }), sets_per_muscle_week: Object.freeze({ min: 6, max: 12 }) }),
   mantenimento: Object.freeze({ weight_pct_week: Object.freeze({ min: -0.1, max: 0.1 }) }),
   definizione: Object.freeze({ weight_pct_week: Object.freeze({ min: -0.7, max: -0.3 }), protein_g_per_kg: Object.freeze({ min: 1.8, max: 2.4 }) }),
 });

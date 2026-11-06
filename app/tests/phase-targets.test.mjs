@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../src/app.js';
 import { validateData, validTargets } from '../src/plan/schema.js';
-import { resolveTargets, loadTargets, phaseValues } from '../src/coach/targets.js';
+import { resolveTargets, loadTargets, phaseValues, GOAL_TYPES } from '../src/coach/targets.js';
 import { weightTrendInsight } from '../src/coach/rules-body.js';
 import { weights } from './helpers/coach-fixtures.mjs';
 import { targetsFrom, buildRequest, phaseForm } from '../public/plan-forms.js';
@@ -91,4 +91,10 @@ test('report alla chiusura: tipo di obiettivo e target della fase', async () => 
   const { json: { phase_id } } = await call(app, '/v1/plan/phase/start', { name: 'Taglio', start_date: '2026-10-20', goal_type: 'definizione' });
   await call(app, '/v1/plan/phase/close', { phase_id, last_day: '2026-11-05' });
   const rep = (await call(app, `/v1/plan/report?phase_id=${phase_id}`)).json.report; assert.equal(rep.phase.goal_type, 'definizione'); assert.deepEqual(rep.targets.weight_pct_week, { min: -0.7, max: -0.3 }); assert.deepEqual(rep.targets.protein_g_per_kg, { min: 1.8, max: 2.4 });
+});
+
+test('obiettivo "forza": preset (volume contenuto, peso stabile o in leggero aumento) e validazione', () => {
+  assert.ok(GOAL_TYPES.includes('forza')); const v = phaseValues({ goal_type: 'forza' });
+  assert.deepEqual(v.weight_pct_week, { min: 0, max: 0.25 }); assert.deepEqual(v.sets_per_muscle_week, { min: 6, max: 12 }); assert.equal(v.goal_type, 'forza');
+  assert.deepEqual(validateData('phase', { name: 'Forza 1', goal: null, method: null, goal_type: 'forza' })?.goal_type ?? 'forza', 'forza');
 });

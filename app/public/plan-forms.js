@@ -28,7 +28,7 @@ export const noteForm = ({ n, today }) => wrap(n ? 'Modifica nota' : 'Nuova nota
   dateF('Data dell\'evento', 'date', n?.date ?? today) + f('Categoria', `<select name="category">${CATEGORIES.map(c => `<option${(n?.category ?? 'evento') === c ? ' selected' : ''}>${c}</option>`).join('')}</select>`)
   + f('Titolo', inp('title', n?.title ?? '', 'required maxlength="80"')) + f('Testo', `<textarea name="text" rows="4" maxlength="5000">${esc(n?.text ?? '')}</textarea>`)
   + actions(n ? '<button type="button" class="pbtn danger" data-act="note-remove">Elimina</button>' : ''), `data-submit="${n ? 'note-edit' : 'note-new'}" ${n ? `data-version="${n.version_id}" data-id="${esc(n.note_id)}"` : ''}`);
-const GOALS = [['', '—'], ['massa', 'Massa'], ['mantenimento', 'Mantenimento'], ['definizione', 'Definizione']];
+const GOALS = [['', '—'], ['massa', 'Massa'], ['forza', 'Forza'], ['mantenimento', 'Mantenimento'], ['definizione', 'Definizione']];
 const tv = (t, a, b) => (t?.[a]?.[b] ?? '');
 const numIn = (name, v, ph = '', step = '0.05') => `<input name="${name}" type="text" inputmode="decimal" value="${esc(v === '' || v == null ? '' : String(v).replace('.', ','))}" placeholder="${esc(ph)}" autocomplete="off">`;
 const targetsFields = t => `<details class="ptargets"${t ? ' open' : ''}><summary>Target personalizzati (facoltativi)</summary><p class="subtle">Lasciati vuoti valgono i valori predefiniti del tipo di obiettivo (massa +0,25…+0,5 %/sett.; mantenimento −0,1…+0,1; definizione −0,7…−0,3). Sono indicazioni generali, non consulenza medica.</p>
