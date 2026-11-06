@@ -18,8 +18,11 @@ export default {
   },
   // Cron: sync automatico. Spento finché LYFTA_SYNC_ENABLED non è "true" (vedi lyfta-job.js).
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(runLyftaSync(env));
-    ctx.waitUntil(runPolarSync(env));
-    ctx.waitUntil(runFatSecretSync(env));
+    // Esito dell'ultimo cron in meta('cron_last'): solo codici, nessun dato né segreto. Serve a vedere che il cron gira davvero.
+    const run = async (name, fn) => { try { const r = await fn(env); return [name, r?.ran === false ? { ran: false, reason: r.reason } : { ran: true, ok: r?.ok !== false, reason: r?.reason ?? null }]; } catch { return [name, { ran: true, ok: false, reason: 'exception' }]; } };
+    ctx.waitUntil((async () => {
+      const res = Object.fromEntries(await Promise.all([run('lyfta', runLyftaSync), run('polar', runPolarSync), run('fatsecret', runFatSecretSync)]));
+      try { await env.DB.prepare("INSERT INTO meta (name, value) VALUES ('cron_last', ?) ON CONFLICT(name) DO UPDATE SET value = excluded.value").bind(JSON.stringify({ at: new Date().toISOString(), ...res })).run(); } catch { /* best effort */ }
+    })());
   },
 };
