@@ -4,6 +4,7 @@ import { coachHeader, coachActions, coachInsights, coachTests } from '/coach.js'
 import { planHeader, planScheda, planNotes, planPhases } from '/plan.js';
 import { setPlan, bindPlan } from '/plan-ui.js';
 import { adherenceView } from '/plan-adherence.js';
+import { bindWeights } from '/weights-ui.js';
 import { checkinForm, checkinSummary, checkinList, bindCheckin } from '/checkin.js';
 const $ = id => document.getElementById(id);
 const LABEL = { training: 'Allenamento', body: 'Composizione', nutrition: 'Alimentazione', activity: 'Attività', sleep: 'Sonno', cardio: 'Cardio', recovery: 'Recupero', program: 'Programma' };
@@ -118,6 +119,7 @@ for (const [name, v] of Object.entries(VIEWS).filter(([, x]) => x.chips)) {
   });
 }
 
+bindWeights({ root: $('view-peso'), reload: () => loadView('peso') });
 bindCheckin({ root: $('view-recupero'), reload: () => loadView('recupero') });
 bindPlan({ root: $('view-piano'), dialog: $('planDialog'), reload: () => loadView('piano') });
 
