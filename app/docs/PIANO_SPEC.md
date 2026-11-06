@@ -40,3 +40,11 @@ sedute/sett., progressione per esercizio (e1RM), recupero medio configurato, met
 
 ## Fuori ambito (per ora)
 Registrazione delle serie nell'app (resta Lyfta); AI integrata; confronto automatico prescritto/eseguito (dopo il report di fase).
+
+## Aggiornamento 6 nov 2026 (sera) — in produzione
+- **Aderenza alla scheda** (`GET /v1/plan/adherence`, sezione nel Piano, riepilogo nel report): ogni seduta Lyfta è confrontata con la scheda IN VIGORE quel giorno (titolo = nome del giorno): serie, ripetizioni nel range, RIR registrato − previsto, recupero, esercizi saltati/parziali/sostituiti (stesso muscolo, ipotesi), extra, giorni mai svolti.
+- **Progressione** (DEC-COACH-002 CANDIDATE): finestra 28 giorni, ≥3 esposizioni su ≥21 giorni; e1RM aggiustato per RIR se registrato nei ≥2/3 delle serie; stato per esercizio e classificazione globale (IN PROGRESSIONE / STABILE / IN STALLO ≥42 giorni dal massimo / IN CALO / MISTA / DATI INSUFFICIENTI).
+- **Recupero** (DEC-RECOVERY-001 CANDIDATE): `POST/GET /v1/checkin` (5 valori 1–5, append-only, correzioni con storico, fino a 14 giorni indietro), indice 0–100, regolarità del sonno (SD letto/risveglio, ≥7 notti), insight del Coach che non attribuisce cali alla stanchezza senza check-in.
+- **Esclusione pesate** da app (`POST /v1/weights/exclude|restore`): lista in `meta('excluded_weights')` + registro `weight_exclusion_log`, tombstone immediato nel ledger; il ripristino torna con la prossima sincronizzazione del telefono.
+- **Confronto tra periodi** (`GET /v1/compare?days=7|14|28`): peso, grasso, calorie e proteine (giorni completi), sonno, passi, recupero, sedute e serie per muscolo; delta solo con dati sufficienti in entrambi i periodi.
+- **Target nelle fasi**: la versione `phase` può avere `goal_type` (massa/mantenimento/definizione) e `targets` (ritmo peso con segno, proteine, serie, sedute, frequenza, sonno). Il Coach legge: fase attiva → `coach_targets` storico → default (`tests_done` resta dalla riga storica). Il report di fase salva i target.
