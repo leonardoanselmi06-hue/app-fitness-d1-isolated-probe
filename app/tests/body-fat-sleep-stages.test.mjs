@@ -59,6 +59,8 @@ test('fasi del sonno: minuti per fase calcolati dal server, agganciate alla nott
 test('fasi del sonno: sessione senza fasi reali = null (mai zero); notte senza sessione = nessuna fase', async () => {
   assert.deepEqual(summarizeStages([[1, 0, 480]]), { staged: false, light_min: null, deep_min: null, rem_min: null, awake_min: null, asleep_stage_min: null });
   assert.equal(summarizeStages([[2, 0, 480]]).staged, false); // sonno generico senza leggero/profondo/REM
+  for (const one of [[[4, 0, 407], [1, 407, 1]], [[5, 0, 466], [1, 466, 7]]]) assert.equal(summarizeStages(one).deep_min, null, 'una sola fase = nessuna fase'); // dati reali del 6 nov
+  assert.equal(summarizeStages([[4, 0, 300], [5, 300, 90]]).staged, true);
   const db = newDb(), h = handler(db);
   await send(h, { sleep: [NIGHT], sleep_stages: [{ ...SESSION, segments: [[1, 0, 480]] }] });
   const v = await sleepView(db, 'owner', { days: '30', now: NOW });
@@ -78,4 +80,11 @@ test('fasi del sonno: aggancio per sovrapposizione e validazione dei segmenti', 
   assert.equal(bad({ sleep_stages: [{ ...SESSION, end_ms: START - 1 }] }), 'invalid_stages'); assert.equal(bad({ sleep_stages: [SESSION, SESSION] }), 'invalid_stages');
   assert.equal(bad({ sleep_stages: [{ ...SESSION, start_ms: 5 }] }), 'invalid_stages'); assert.equal(bad({ sleep_stages: [{ ...SESSION, origin: 'a b' }] }), 'invalid_stages');
   assert.equal(bad({ body_fat: [], sleep_stages: [] }), 'invalid_items'); // corpo senza dati
+});
+test('fasi del sonno: record già salvato con la regola vecchia (una sola fase) viene ricalcolato dalla vista', async () => {
+  const db = newDb(), h = handler(db);
+  await send(h, { sleep: [NIGHT], sleep_stages: [{ ...SESSION, segments: [[4, 0, 470], [1, 470, 10]] }] });
+  await db.prepare("UPDATE current_records SET payload_json = json_set(payload_json, '$.staged', json('true'), '$.light_min', 470, '$.deep_min', 0, '$.rem_min', 0) WHERE scope_id = 'sleep_stages'").run();
+  const v = await sleepView(db, 'owner', { days: '30', now: NOW });
+  assert.equal(v.nights[0].stages, null); assert.equal(v.stages_7, null);
 });
