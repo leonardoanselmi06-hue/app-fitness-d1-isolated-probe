@@ -10,6 +10,7 @@ const MAX_BYTES = 1024 * 1024, MAX_ITEMS = 400;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const PKG = /^[A-Za-z0-9_.]{1,100}$/;
 const ID = /^[A-Za-z0-9_.:@/-]{1,100}$/;
+const SHORT_NIGHT_MS = 3 * 3600 * 1000; // sotto le 3 ore: probabile riposino o registrazione interrotta
 const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 export function parseDeviceBody(text, nowMs) {
@@ -60,10 +61,10 @@ export function deviceIngest({ db, raw, now = () => new Date().toISOString(), en
         records: b.weights.map(w => ({ id: `weight:${w.id}`, domain: 'body', observed_at: new Date(w.time).toISOString(), payload: { metric: 'body_weight_kg', kg: w.kg, time: new Date(w.time).toISOString(), local_date: localDate(w.time), origin: w.origin ?? null } })) });
     }
     if (b.sleep.length) {
-      out.sleep = await ingest({ db, raw, now }, { ...base, source_system: 'sleep_as_android', scope_id: 'sleep', request_id: crypto.randomUUID(), artifact: JSON.stringify(b.sleep),
+      out.sleep = await ingest({ db, raw, now }, { ...base, source_system: 'sleep_as_android', scope_id: 'sleep', request_id: crypto.randomUUID(), artifact: JSON.stringify({ schema: 2, sleep: b.sleep }),
         records: b.sleep.map(z => ({ id: `sleep:${z.id}`, domain: 'sleep', observed_at: new Date(z.start_ms).toISOString(), payload: {
           start_at: new Date(z.start_ms).toISOString(), end_at: new Date(z.end_ms).toISOString(), local_date: localDate(new Date(z.end_ms).toISOString()), timezone: z.tz ?? null,
-          duration_min: Math.round((z.end_ms - z.start_ms) / 60000), latest_end_at: z.latest_end_ms ? new Date(z.latest_end_ms).toISOString() : null,
+          duration_min: Math.round((z.end_ms - z.start_ms) / 60000), short: z.end_ms - z.start_ms < SHORT_NIGHT_MS, latest_end_at: z.latest_end_ms ? new Date(z.latest_end_ms).toISOString() : null,
           rating: z.rating ?? null, quality: z.quality ?? null, snore: z.snore ?? null, cycles: z.cycles ?? null, len_adjust_raw: z.len_adjust ?? null, noise_level: z.noise_level ?? null, length_raw: z.length_raw ?? null,
           identity: 'provider_startTime', time_semantics: 'epoch_ms' } })) });
     }

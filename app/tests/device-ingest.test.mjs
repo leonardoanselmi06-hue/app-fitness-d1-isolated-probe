@@ -64,7 +64,9 @@ test('sonno: notti in D1 come domain sleep (source sleep_as_android), identità 
   const db = newDb(), app = appFor(db), dev = await jwt({ common_name: 'c' });
   const night = { id: '1793000000000', start_ms: 1793000000000, end_ms: 1793000000000 + 7.5 * 3600 * 1000, latest_end_ms: null, tz: 'Europe/Rome', rating: 4, quality: 0.8, snore: null, cycles: 5, len_adjust: 0, noise_level: 20.5, length_raw: 27000 };
   const r = await (await app(post(dev, { device_id: 'p1', sleep: [night] }))).json(); assert.equal(r.sleep.modified, 1);
-  const rows = await listCanonical(db, 'owner', 'sleep'); assert.equal(rows.length, 1); assert.equal(rows[0].payload.duration_min, 450); assert.equal(rows[0].payload.snore, null);
+  const rows = await listCanonical(db, 'owner', 'sleep'); assert.equal(rows.length, 1); assert.equal(rows[0].payload.duration_min, 450); assert.equal(rows[0].payload.snore, null); assert.equal(rows[0].payload.short, false);
+  const nap = { ...night, id: '1793100000000', start_ms: 1793100000000, end_ms: 1793100000000 + 32 * 60 * 1000 };
+  await app(post(dev, { device_id: 'p1', sleep: [night, nap] })); const all = await listCanonical(db, 'owner', 'sleep'); assert.equal(all.length, 2); assert.equal(all.find(r => r.payload.duration_min === 32).payload.short, true);
   await app(post(dev, { device_id: 'p1', sleep: [night] })); assert.equal((await listCanonical(db, 'owner', 'sleep')).length, 1);
   const bad = b => { try { parseDeviceBody(JSON.stringify({ device_id: 'p', sleep: [b] }), Date.parse(NOWISO())); return null; } catch (e) { return e.code; } };
   assert.equal(bad({ ...night, id: '5' }), 'invalid_sleep'); assert.equal(bad({ ...night, end_ms: night.start_ms - 1 }), 'invalid_sleep'); assert.equal(bad({ ...night, end_ms: night.start_ms + 40 * 3600 * 1000 }), 'invalid_sleep');
