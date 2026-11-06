@@ -1,7 +1,8 @@
 // Interazione del tab Piano (DOM): apre i moduli, invia le modifiche all'API (solo proprietario) e ricarica la vista.
 import { esc } from './views.js';
 import { historyList, rxLine } from './plan.js';
-import { rxForm, dayForm, noteForm, phaseForm, closeForm, buildRequest, errorText } from './plan-forms.js';
+import { rxForm, dayForm, noteForm, phaseForm, closeForm, importForm, buildRequest, errorText } from './plan-forms.js';
+import { reportView } from './plan-report.js';
 
 let plan = null;
 export const setPlan = d => { plan = d; };
@@ -25,8 +26,12 @@ export function bindPlan({ root, dialog, reload }) {
     catch (e) { show(`<p class="perr">${esc(e.message)}</p><button type="button" class="pbtn sec" data-act="close">Chiudi</button>`); }
   }
   async function showReport(id) {
-    try { const { report } = await api(`/v1/plan/report?phase_id=${id}`); show(`<h2>Report di fase</h2>${report ? `<pre class="subtle">${esc(JSON.stringify(report, null, 1))}</pre>` : '<div class="empty">Nessun report salvato.</div>'}<div class="prow"><button type="button" class="pbtn sec" data-act="close">Chiudi</button></div>`); }
+    try { const { report } = await api(`/v1/plan/report?phase_id=${id}`); show(`${reportView(report)}<div class="prow"><button type="button" class="pbtn sec" data-act="close">Chiudi</button></div>`); }
     catch (e) { show(`<p class="perr">${esc(e.message)}</p>`); }
+  }
+  async function openImport(from, to) {
+    try { const sug = await api(`/v1/plan/suggest?from=${from}&to=${to}`); show(importForm({ sug, phase: plan.active })); }
+    catch (e) { show(`<p class="perr">${esc(e.message)}</p><button type="button" class="pbtn sec" data-act="close">Chiudi</button>`); }
   }
   async function phaseScheda(id) {
     try {
@@ -47,6 +52,7 @@ export function bindPlan({ root, dialog, reload }) {
     else if (act === 'phase-new') show(phaseForm({ mode: 'new', today: t, closed: plan.phases.filter(p => p.status === 'closed') }));
     else if (act === 'phase-edit' && a) show(phaseForm({ mode: 'edit', a, today: t }));
     else if (act === 'phase-close' && a) show(closeForm({ a, today: t }));
+    else if (act === 'import' && a) openImport(a.start_date, t);
     else if (act === 'hist') history(kind, entity);
     else if (act === 'report') showReport(id);
     else if (act === 'phase-hist') phaseScheda(id);
@@ -54,6 +60,7 @@ export function bindPlan({ root, dialog, reload }) {
   dialog.addEventListener('click', ev => {
     const b = ev.target.closest('button[data-act]'); if (!b) return;
     if (b.dataset.act === 'close') return close();
+    if (b.dataset.act === 'import-refresh') { const f = dialog.querySelector('#planForm'); return openImport(f.elements.from.value, f.elements.to.value); }
     const form = dialog.querySelector('#planForm'); if (!form) return;
     if (['rx-remove', 'day-remove', 'note-remove'].includes(b.dataset.act) && form.reportValidity()) submit(form, b.dataset.act);
   });

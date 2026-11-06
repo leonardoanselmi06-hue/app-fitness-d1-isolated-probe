@@ -47,10 +47,10 @@ export function planHeader(d) {
 const pending = e => (e.pending ? `<span class="tag warn">dal ${esc(shortDate(e.pending.valid_from))}: ${diffLines('rx', e, e.pending).join(' · ') || 'modifica programmata'}</span>` : '');
 export function planScheda(d) {
   const a = d.active; if (!a) return '';
-  if (!a.days.length) return `<h2 class="sec">Scheda</h2><div class="empty">Scheda vuota: aggiungi un giorno (es. "6.UPPER").</div><div class="prow">${btn('day-new', '+ Giorno', '', 'pri')}</div>`;
+  if (!a.days.length) return `<h2 class="sec">Scheda</h2><div class="empty">Scheda vuota: importala dalle tue sedute Lyfta, oppure aggiungi un giorno a mano (es. "6.UPPER").</div><div class="prow">${btn('import', 'Importa da Lyfta', '', 'pri')}${btn('day-new', '+ Giorno')}</div>`;
   const days = a.days.map(day => `<section class="pday"><div class="pdayhead"><div><strong>${esc(day.label)}</strong>${day.focus ? `<small>${esc(day.focus)}</small>` : ''}</div><div class="prow tight">${btn('day-edit', 'Modifica', `data-key="${esc(day.key)}"`)}${btn('rx-new', '+ Esercizio', `data-day="${esc(day.label)}"`, 'pri')}</div></div>
 ${day.exercises.length ? `<ul class="rows prx">${day.exercises.map(e => `<li><span class="rowmain"><strong>${esc(e.exercise)}</strong><small>${esc(rxLine(e))}${e.note ? ` · ${esc(e.note)}` : ''}</small>${pending(e)}${e.versions > 1 ? `<small class="muted">${e.versions} versioni</small>` : ''}</span><span class="prow tight">${btn('rx-edit', 'Modifica', `data-key="${esc(e.key)}"`)}${btn('hist', 'Storico', `data-kind="rx" data-entity="${esc(e.key)}"`)}</span></li>`).join('')}</ul>` : '<div class="empty small">Nessun esercizio.</div>'}</section>`).join('');
-  return `<h2 class="sec">Scheda in vigore</h2>${days}<div class="prow">${btn('day-new', '+ Giorno')}</div>`;
+  return `<h2 class="sec">Scheda in vigore</h2>${days}<div class="prow">${btn('day-new', '+ Giorno')}${btn('import', 'Importa da Lyfta')}</div>`;
 }
 
 export function planNotes(d) {
