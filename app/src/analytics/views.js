@@ -19,7 +19,7 @@ function summarizeWorkout(payload) {
   let working = 0, warmup = 0, reps = 0, repsSeen = false, loadVolume = 0, loadSeen = false;
   for (const ex of exercises) {
     for (const s of ex.sets ?? []) {
-      if (s.completed === false) continue; // una serie non completata non conta
+      // `completed` NON viene usato: Lyfta restituisce is_completed=false per ~90% delle serie realmente registrate (verificato su D1).
       if (s.warmup) { warmup++; continue; }
       working++;
       if (s.reps != null) { reps += s.reps; repsSeen = true; }

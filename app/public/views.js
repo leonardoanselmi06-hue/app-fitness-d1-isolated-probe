@@ -24,10 +24,9 @@ export function setLine(s) {
   if (s.duration_sec != null) parts.push(mmss(s.duration_sec));
   if (s.distance != null) parts.push(`dist. ${fmtNum(s.distance)}`); // unità non documentata: nessuna inventata
   if (s.rir != null) parts.push(`RIR ${fmtNum(s.rir)}`);
-  const body = parts.length ? parts.join(' · ') : '—';
+  const body = parts.length ? parts.join(' · ') : 'dato non registrato';
   const tag = s.warmup ? '<span class="tag">risc.</span>' : s.set_type && s.set_type !== 'NORMAL' ? `<span class="tag">${esc(s.set_type.toLowerCase())}</span>` : '';
-  const skip = s.completed === false ? '<span class="tag warn">non completata</span>' : '';
-  return `<li>${tag}${skip}<span>${esc(body)}</span></li>`;
+  return `<li>${tag}<span>${esc(body)}</span></li>`;
 }
 
 export function workoutCard(w) {
