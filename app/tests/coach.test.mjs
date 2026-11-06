@@ -31,7 +31,7 @@ test('muscoli: classificazione, serie dirette ed e1RM', () => {
   for (const [n, m] of Object.entries(cases)) assert.equal(classify(n), m, n);
   assert.equal(countsAsSet({ reps: 8 }, 'petto'), true);
   assert.equal(countsAsSet({ reps: 8, warmup: true }, 'petto'), false);
-  assert.equal(countsAsSet({ reps: 8, completed: false }, 'petto'), false);
+  assert.equal(countsAsSet({ reps: 8, completed: false }, 'petto'), true); // is_completed di Lyfta non è affidabile
   assert.equal(countsAsSet({ reps: null, duration_sec: 40 }, 'petto'), false); // il tempo conta solo per addome/collo
   assert.equal(countsAsSet({ reps: null, duration_sec: 40 }, 'addome'), true);
   assert.equal(countsAsSet({ reps: null, duration_sec: 5 }, 'addome'), false);

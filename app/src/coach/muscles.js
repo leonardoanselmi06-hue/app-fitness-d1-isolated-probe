@@ -29,9 +29,10 @@ export function classify(name) {
   return 'unmapped';
 }
 
-/** Serie che contano come lavoro diretto: completata, non di riscaldamento, con ripetizioni (o durata >= 10 s per gli isometrici). */
+/** Serie che contano come lavoro diretto: non di riscaldamento, con ripetizioni (o durata >= 10 s per gli isometrici).
+ *  Il flag `completed` di Lyfta è ignorato: è false per ~90% delle serie realmente registrate. */
 export function countsAsSet(set, muscle) {
-  if (!set || set.completed === false || set.warmup) return false;
+  if (!set || set.warmup) return false;
   if (typeof set.reps === 'number' && set.reps > 0) return true;
   return ISOMETRIC.has(muscle) && typeof set.duration_sec === 'number' && set.duration_sec >= 10;
 }

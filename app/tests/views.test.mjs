@@ -43,7 +43,7 @@ test('allenamenti: ordine dal più recente, riepilogo corretto, carico esterno s
   assert.equal(w.exercises[0].sets[1].warmup, true);
 });
 
-test('allenamenti: le serie non completate non contano; senza zavorra il volume è null (mai zero)', async () => {
+test('allenamenti: is_completed di Lyfta non esclude serie registrate; senza zavorra il volume è null (mai zero)', async () => {
   const db = newDb(), raw = new MemoryRawStore();
   const w = workout(2001, { exercises: [{ exercise_id: 1, excercise_name: 'Flessioni', sets: [
     { id: 5, reps: 10, set_type_id: 0, is_completed: true },
@@ -51,7 +51,7 @@ test('allenamenti: le serie non completate non contano; senza zavorra il volume 
   ] }] });
   await put(db, raw, 1, 'lyfta', 'full', [normalizeWorkout(w)]);
   const s = (await trainingView(db, S, {})).workouts[0].summary;
-  assert.equal(s.working_sets, 1); assert.equal(s.reps_total, 10); assert.equal(s.external_load_volume_kg, null);
+  assert.equal(s.working_sets, 2); assert.equal(s.reps_total, 20); assert.equal(s.external_load_volume_kg, null);
 });
 
 test('allenamenti: paginazione e limiti sui parametri', async () => {

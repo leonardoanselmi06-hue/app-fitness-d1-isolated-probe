@@ -19,8 +19,8 @@ test('serie: carico, ripetizioni, durata, distanza senza unità inventata, RIR e
   assert.match(setLine({ duration_sec: 75, distance: 4, set_type: 'NORMAL', warmup: false }), /1:15 · dist\. 4/);
   assert.match(setLine({ reps: 5, warmup: true, set_type: 'WARMUP' }), /risc\./);
   assert.match(setLine({ reps: 5, set_type: 'FAILURE', warmup: false }), /failure/);
-  assert.match(setLine({ reps: 5, set_type: 'NORMAL', warmup: false, completed: false }), /non completata/);
-  assert.match(setLine({ set_type: 'NORMAL', warmup: false }), /<span>—<\/span>/);
+  assert.ok(!/non completata/.test(setLine({ reps: 5, set_type: 'NORMAL', warmup: false, completed: false }))); // flag non affidabile: nessuna etichetta
+  assert.match(setLine({ set_type: 'NORMAL', warmup: false }), /<span>dato non registrato<\/span>/);
 });
 
 test('scheda allenamento: titolo e nomi escapati, riepilogo senza volume quando è null', () => {

@@ -66,3 +66,7 @@ energy_balance 7 › progression 6 › protein 6 › sleep 5 › weighin_protoco
 ## Verifica (acceptance)
 Test automatici per ogni regola con dati sintetici (esiti ok/attenzione/insufficiente, casi limite, nessun NaN/zero inventato),
 per il caricamento da D1 (target versionati, tabella assente → default) e per il rendering. Controllo visivo a 390 px.
+
+## Nota dati Lyfta (verificata su D1, 6 nov 2026)
+- `is_completed` è false per ~90% delle serie registrate (da maggio 2025) ed è true quasi solo sulle serie a tempo/cardio: il flag NON è usato né per i conteggi né per le etichette. Una serie di lavoro conta se ha ripetizioni (o ≥10 s per addome/collo).
+- Le serie a tempo recenti (es. Side Plank) arrivano con `duration = null`: non è possibile calcolare i secondi tenuti. Restano non conteggiate nel volume (addome).
