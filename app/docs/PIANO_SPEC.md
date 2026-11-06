@@ -48,3 +48,9 @@ Registrazione delle serie nell'app (resta Lyfta); AI integrata; confronto automa
 - **Esclusione pesate** da app (`POST /v1/weights/exclude|restore`): lista in `meta('excluded_weights')` + registro `weight_exclusion_log`, tombstone immediato nel ledger; il ripristino torna con la prossima sincronizzazione del telefono.
 - **Confronto tra periodi** (`GET /v1/compare?days=7|14|28`): peso, grasso, calorie e proteine (giorni completi), sonno, passi, recupero, sedute e serie per muscolo; delta solo con dati sufficienti in entrambi i periodi.
 - **Target nelle fasi**: la versione `phase` può avere `goal_type` (massa/forza/mantenimento/definizione) e `targets` (ritmo peso con segno, proteine, serie, sedute, frequenza, sonno). Il Coach legge: fase attiva → `coach_targets` storico → default (`tests_done` resta dalla riga storica). Il report di fase salva i target.
+
+## Cardio e attività secondarie (v1)
+- Corsa, cardio e simili si inseriscono come un **giorno della scheda** (per esempio "Corsa") con esercizi dal nome di Lyfta (per esempio "Run on Treadmill"), 1 serie e **durata in minuti** (`duration_min` nella versione `rx`, 1–600). L'importazione da Lyfta riconosce il cardio e propone la durata dell'ultima seduta.
+- Il confronto è per **minuti**, non per serie: completo, parziale (< 80 % dei minuti previsti) o saltato. I giorni composti solo da cardio sono "secondari": non entrano in serie fatte, ripetizioni, RIR e recuperi, né nelle settimane di forza. La distanza non è usata (unità non documentata in Lyfta).
+- `adherence.cardio`: sedute e minuti registrati in Lyfta nel periodo (anche con un titolo non in scheda, e dentro altre sedute); `adherence.secondary`: minuti fatti e previsti dei giorni secondari. Il cardio non è mai una seduta di forza né un esercizio "extra".
+- Il dossier dell'IA li riceve con la dicitura "cardio, attività secondaria"; il prompt v5 le valuta rispetto a obiettivo e recupero (K12).

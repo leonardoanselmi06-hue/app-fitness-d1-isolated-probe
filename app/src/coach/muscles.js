@@ -63,3 +63,12 @@ export function secondaryOf(name) {
   for (const [re, list] of SECONDARY) if (re.test(n)) return list.filter(x => x !== m);
   return [];
 }
+
+// Cardio (attività secondarie): corsa, tapis roulant, bici, camminata, ellittica, vogatore, nuoto, corda. Non è lavoro di forza e non conta nelle serie.
+const CARDIO = /treadmill|tapis|\bcorsa\b|corsetta|\brun(?:ning)?\b|jog|cyclette|cycling|\bbike\b|ellittic|elliptical|camminata|\bwalking\b|stair|sprint|ergomet|rowing machine|rower|ski erg|assault|\bswim|nuoto|jump rope|corda/;
+export const isCardio = name => CARDIO.test(normalizeName(name));
+/** Minuti registrati per un esercizio di cardio: somma delle durate delle serie non di riscaldamento. null se non c'è alcuna durata. */
+export function cardioMinutes(ex) {
+  const secs = (ex?.sets ?? []).filter(x => x && !x.warmup && typeof x.duration_sec === 'number' && x.duration_sec > 0).reduce((a, x) => a + x.duration_sec, 0);
+  return secs > 0 ? Math.round((secs / 60) * 10) / 10 : null;
+}

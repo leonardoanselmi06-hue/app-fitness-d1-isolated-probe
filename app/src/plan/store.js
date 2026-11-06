@@ -114,7 +114,7 @@ export async function importDays(db, subject, r, days, { today, nowIso }) {
   for (const d of days) {
     const dk = slug(d.title); if (!dk) continue;
     if (add('day', `day:${phase.id}:${dk}`, { label: d.title, ...validateData('day', { order: d.order, focus: null }) })) out.days_added++;
-    d.exercises.forEach((e, i) => { const ek = slug(e.exercise); if (ek && add('rx', `rx:${phase.id}:${dk}:${ek}`, { day: d.title, exercise: e.exercise, ...validateData('rx', { order: Math.min(i, 30), sets: e.sets, reps_min: e.reps_min, reps_max: e.reps_max, rir: e.rir, rest_sec: e.rest_sec, method: null, note: null }) })) out.exercises_added++; });
+    d.exercises.forEach((e, i) => { const ek = slug(e.exercise); if (ek && add('rx', `rx:${phase.id}:${dk}:${ek}`, { day: d.title, exercise: e.exercise, ...validateData('rx', { order: Math.min(i, 30), sets: e.sets, reps_min: e.reps_min, reps_max: e.reps_max, rir: e.rir, rest_sec: e.rest_sec, ...(e.duration_min != null ? { duration_min: e.duration_min } : {}), method: null, note: null }) })) out.exercises_added++; });
   }
   if (stmts.length) { try { await db.batch(stmts); } catch (e) { throw conflict(e); } }
   return out;

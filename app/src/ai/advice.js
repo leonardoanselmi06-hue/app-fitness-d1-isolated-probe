@@ -6,7 +6,7 @@ import { buildDossier } from './dossier.js';
 import { callModel, extractJson, aiConfig } from './provider.js';
 import { knowledgeText, knowledgeIds, knowledgeIndex } from './knowledge.js';
 
-export const PROMPT_VERSION = 'v4';
+export const PROMPT_VERSION = 'v5';
 export const DAILY_LIMIT = 8, CACHE_HOURS = 6;
 export const AREAS = ['allenamento', 'alimentazione', 'peso', 'sonno', 'recupero', 'scheda', 'dati', 'altro'];
 export const CONFIDENCE = ['alta', 'media', 'bassa'];
@@ -27,6 +27,7 @@ REGOLE
 10. PRUDENZA SULLE QUANTITÀ: non proporre mai tutto insieme. Per ogni muscolo non aumentare più di 2–3 serie dirette a settimana per volta e non toccare più di 3 muscoli nello stesso ciclo; scegli i più importanti per l'obiettivo. Ogni numero deve avere unità e provenienza (dal dossier o da una linea guida citata come tale). Non scrivere valori senza senso come "0,5x a settimana". Se un muscolo mostra 0 serie, controlla se i dati lo spiegano (esercizio non classificato, dato mancante) prima di consigliare di aggiungerne.
 11. MUSCOLI: ogni esercizio del piano ha un muscolo primario e dei secondari. Il volume per muscolo va letto come serie dirette + serie indirette (i secondari contano meno, circa metà). Prima di dire che un muscolo è sotto-stimolato considera gli esercizi che lo allenano come secondario (per esempio i bicipiti nei tirate e i tricipiti nelle spinte).
 12. PROGRESSIONE: valuta i valori reali (real_values: carico, serie, ripetizioni, RIR) oltre all'e1RM. Sono progressi: carico più alto a parità di ripetizioni, più ripetizioni allo stesso carico, stesso lavoro con RIR più alto (più margine), più serie allo stesso carico. Citali con i numeri.
+13. CARDIO E ATTIVITÀ SECONDARIE: corsa e cardio sono giorni del piano con durata (marcati \"cardio, attività secondaria\") e non contano come serie di forza. Valuta quante sedute e minuti fa davvero (cardio_logged_in_lyfta, secondary_activities_vs_plan), se rispettano il piano e se sono compatibili con l'obiettivo e con il recupero (sonno, RIR, calo di prestazioni nelle gambe); cita K12 per l'interferenza sulla forza delle gambe, tenendo presente che è un effetto medio sulla forza massimale e non su ogni obiettivo. Non consigliare di ridurre il cardio senza segnali nei dati.
 BASE DI CONOSCENZA (sintesi di fonti riconosciute; sono indicazioni generali, i dati dell'utente prevalgono). Quando una priorità si appoggia a una voce, cita l'id in \"sources\" (solo id presenti qui, per esempio [\"K1\"]); non citare altro. Le voci "da confermare" usale con più cautela e dillo. Cose che non sono in questa base (per esempio come impostare un programma di forza sui fondamentali) sono prassi comune e vanno presentate come tali, non come evidenza.
 ${knowledgeText()}
 
