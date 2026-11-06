@@ -1,5 +1,5 @@
 // Router HTTP (API stabile /v1, DEC-API-001 CANDIDATE) — Web standard Request/Response.
-// Superficie attuale: SOLA LETTURA + health. L'ingestione avviene solo da adapter server-side fidati:
+// Superficie: lettura + health; scrittura SOLO sotto /v1/plan/* (proprietario: fasi, scheda, note; DEC-PLAN-001 CANDIDATE). L'ingestione avviene solo da adapter server-side fidati:
 // nessun endpoint accetta dal client il flag scope_complete (non verificabile).
 import { AppError } from './core/errors.js';
 import { DOMAINS } from './ingest/envelope.js';
@@ -8,6 +8,7 @@ import { summarize } from './analytics/summary.js';
 import { trainingView, weightView } from './analytics/views.js';
 import { nutritionView, sleepView, stepsView } from './analytics/daily-views.js';
 import { coachReview } from './coach/review.js';
+import { planRoute } from './plan/routes.js';
 
 const json = (status, body, extra = {}) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...extra },
@@ -38,6 +39,7 @@ export function createApp({ db, auth, assets, jobs = {}, now = () => new Date() 
           if (!jobs.fatsecretSync) throw new AppError(404, 'not_found');
           return json(200, await jobs.fatsecretSync());
         }
+        if (url.pathname.startsWith('/v1/plan/') || url.pathname === '/v1/plan') return json(200, await planRoute(request, url, { db, subject, now, buildReport: jobs.phaseReport }));
         if (request.method !== 'GET') throw new AppError(405, 'method_not_allowed');
         const m = url.pathname.match(/^\/v1\/(canonical|operations)\/([A-Za-z0-9_.:-]{1,120})$/);
         if (m?.[1] === 'canonical') {
