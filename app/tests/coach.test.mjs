@@ -177,14 +177,13 @@ test('volume: in linea, muscolo scoperto, frequenza bassa, volume alto, non rico
   const custom = volumeInsight(analyzeSessions(sessions()), TODAY, { ...T, muscles: ['petto'] }); assert.equal(custom.data.muscles.length, 1);
 });
 
-test('progressione: in progresso, ferma, dati insufficienti', () => {
-  const su = progressionInsight(sessions({ step: 2.5 })); assert.equal(su.status, 'ok'); assert.ok(su.data.exercises.every(e => e.trend === 'progresso' || e.metric === 'reps'));
-  const ferma = progressionInsight(sessions({ step: 0 })); assert.equal(ferma.status, 'attenzione'); assert.match(ferma.action, /una ripetizione/);
-  assert.equal(progressionInsight(sessions().slice(0, 5)).status, 'insufficiente');
+test('progressione: in progresso, stallo, dati insufficienti, senza carico = ripetizioni', () => {
+  const su = progressionInsight(sessions({ step: 2.5 }), TODAY); assert.equal(su.status, 'ok'); assert.equal(su.data.overall, 'progressing'); assert.ok(su.data.exercises.every(e => e.status === 'in progresso'));
+  const ferma = progressionInsight(sessions({ step: 0 }), TODAY); assert.equal(ferma.status, 'attenzione'); assert.equal(ferma.data.overall, 'stalling'); assert.match(ferma.action, /una ripetizione/);
+  assert.equal(progressionInsight(sessions().slice(0, 5), TODAY).status, 'insufficiente');
   assert.equal(progressionInsight([]).status, 'insufficiente');
-  const bw = []; for (let w = 0; w < 8; w++) bw.push({ id: `p${w}`, date: `2026-09-${String(10 + w).padStart(2, '0')}`, exercises: [exercise('Pull-up', 4, 5 + w)] });
-  const pr = progressionInsight([...bw, ...bw.map((s, i) => ({ ...s, id: `q${i}`, exercises: [exercise('Barbell Bench Press', 4, 8, 50 + i), exercise('Barbell Full Squat', 4, 8, 60 + i * 2)] }))]);
-  assert.equal(pr.data.exercises.find(e => e.name === 'Pull-up').metric, 'reps'); // senza carico esterno: ripetizioni
+  const bw = []; for (let w = 0; w < 8; w++) bw.push({ id: `p${w}`, date: `2026-10-${String(10 + w * 3).padStart(2, '0')}`, exercises: [exercise('Pull-up', 4, 5 + w)] });
+  const pr = progressionInsight(bw, '2026-11-06'); assert.equal(pr.data.exercises.find(e => e.name === 'Pull-up').metric, 'reps'); // senza carico esterno: ripetizioni
 });
 
 // ---------- test planner e revisione ----------

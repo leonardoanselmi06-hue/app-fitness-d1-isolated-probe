@@ -62,7 +62,7 @@ test('report di fase: peso, grasso, alimentazione (solo giorni completi), sonno,
   assert.equal(r.nutrition.complete_days, 3); assert.equal(r.nutrition.avg_kcal, 2200); assert.equal(r.nutrition.avg_protein_g, 140); assert.equal(r.nutrition.logged_days, 4); assert.ok(r.nutrition.note); // 4° giorno incompleto escluso
   assert.equal(r.sleep.nights, 2); assert.equal(r.sleep.avg_min, 450); assert.equal(r.steps.avg, 9000);
   assert.equal(r.training.sessions_total, 8); assert.equal(r.training.sessions_strength, 4); assert.equal(r.training.strength_per_week, 0.9); // le sedute B hanno 3 serie dirette: sotto la soglia di 4, non contano come sedute di forza assert.equal(r.training.avg_rest_sec > 0, true);
-  assert.ok(r.training.sets_per_muscle_week.Petto > 0); const bench = r.training.progression.find(p => p.exercise === 'Barbell Bench Press'); assert.equal(bench.trend, 'progresso'); assert.equal(bench.metric, 'e1rm_kg');
+  assert.ok(r.training.sets_per_muscle_week.Petto > 0); const bench = r.training.progression.find(p => p.exercise === 'Barbell Bench Press'); assert.equal(bench.trend, 'progresso'); assert.equal(bench.metric, 'e1rm_kg'); assert.equal(r.training.progression_overall.key, 'insufficient'); assert.equal(r.training.progression_overall.window_days, 28);
   assert.equal(r.scheda[0].label, 'A - Upper 1'); assert.equal(r.scheda[0].exercises[0].exercise, 'Barbell Bench Press'); assert.equal(r.scheda_changes, 0);
   // il report non cambia anche se i dati cambiano dopo
   await put(db, 'health_connect', 'weight', [{ id: 'weight:99', domain: 'body', observed_at: '2026-10-07T06:30:00.000Z', payload: { metric: 'body_weight_kg', kg: 99, time: '2026-10-07T06:30:00.000Z', local_date: '2026-10-07', origin: 'x' } }]);

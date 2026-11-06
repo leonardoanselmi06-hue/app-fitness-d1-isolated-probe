@@ -1,6 +1,7 @@
 // Regole di allenamento: costanza, volume per muscolo e progressione. Solo serie dirette di forza (vedi muscles.js).
 import { addDays, mondayOf, mean, fmt, sgn, insight } from './stats.js';
 import { MUSCLE_LABEL, classify, countsAsSet, epley, normalizeName } from './muscles.js';
+import { classifyAll } from './progression.js';
 
 const MIN_SETS_SESSION = 4;
 
@@ -77,27 +78,19 @@ export function exerciseSeries(sessions) {
   return [...map.values()];
 }
 
-export function progressionInsight(sessions) {
-  const rows = [];
-  for (const ex of exerciseSeries(sessions)) {
-    const pts = ex.points.sort((a, b) => (a.date < b.date ? -1 : 1));
-    if (pts.length < 6) continue;
-    const useLoad = pts.filter(p => p.e1rm != null).length >= pts.length / 2;
-    const vals = pts.filter(p => (useLoad ? p.e1rm != null : true)).map(p => (useLoad ? p.e1rm : p.reps)).slice(-6);
-    if (vals.length < 6) continue;
-    const prev = mean(vals.slice(0, 3)), last = mean(vals.slice(3));
-    if (!(prev > 0)) continue;
-    const pct = ((last - prev) / prev) * 100;
-    rows.push({ name: ex.name, metric: useLoad ? 'e1rm_kg' : 'reps', prev, last, pct, trend: pct >= 1.5 ? 'progresso' : pct <= -1.5 ? 'calo' : 'stabile' });
-  }
-  if (rows.length < 3) return insight('progression', 'Progressione dei carichi', 'insufficiente', `Servono almeno 3 esercizi con 6 sedute negli ultimi 84 giorni: ne ho ${rows.length}.`, { evidence: [`Esercizi valutabili: ${rows.length}`] });
-  const count = t => rows.filter(r => r.trend === t).length, stalled = rows.filter(r => r.trend !== 'progresso');
-  const ev = [`In progresso: ${count('progresso')} · stabili: ${count('stabile')} · in calo: ${count('calo')} (su ${rows.length}, ultime 3 sedute contro le 3 precedenti)`,
-    ...rows.slice().sort((a, b) => a.pct - b.pct).slice(0, 5).map(r => `${r.name}: ${sgn(r.pct, 1)}% (${r.metric === 'e1rm_kg' ? 'e1RM' : 'ripetizioni'})`)];
-  const data = { exercises: rows };
-  if (stalled.length / rows.length >= 0.4) {
-    const names = stalled.sort((a, b) => a.pct - b.pct).slice(0, 3).map(r => r.name).join(', ');
-    return insight('progression', 'Progressione dei carichi', 'attenzione', `${stalled.length} esercizi su ${rows.length} non stanno progredendo.`, { evidence: ev, action: `Per ${names}: prova a salire di una ripetizione per serie a parità di carico, poi aumenta il peso.`, data });
-  }
-  return insight('progression', 'Progressione dei carichi', 'ok', `La maggior parte degli esercizi progredisce (${count('progresso')} su ${rows.length}).`, { evidence: ev, data });
+export function progressionInsight(sessions, today = sessions.at(-1)?.date ?? null) {
+  if (!today) return insight('progression', 'Progressione dei carichi', 'insufficiente', 'Nessun allenamento registrato: non posso valutare la progressione.', { evidence: ['Esercizi valutabili: 0'] });
+  const g = classifyAll(sessions, today), ev = g.exercises.filter(r => r.status !== 'insufficiente'), unit = r => (r.metric === 'e1rm_kg' ? 'e1RM' : 'ripetizioni');
+  const lines = ev.slice(0, 8).map(r => `${r.name}: ${r.status} (${sgn(r.pct_week, 1)}% a settimana, ${unit(r)} ${fmt(r.last_value, 1)}, ${r.n_window} sedute${r.status === 'ferma' && r.days_since_best != null ? `, ultimo massimo ${r.days_since_best} giorni fa` : ''}${r.confidence === 'bassa' ? ', RIR mancante: fiducia bassa' : ''})`);
+  const evidence = [`Classificazione: ${g.label} · in progresso ${g.counts.progressing}, fermi ${g.counts.stalled}, in calo ${g.counts.declining} su ${g.evaluable} valutabili (finestra ${g.window_days} giorni, almeno 3 sedute su 21 giorni)`, ...lines];
+  if (g.counts.insufficient) evidence.push(`Non valutabili: ${g.counts.insufficient} (troppo poche sedute recenti)`);
+  const low = ev.filter(r => r.confidence === 'bassa').length; if (low > 0 && low >= ev.length / 2) evidence.push('Il RIR manca in molte serie: senza RIR un aumento di carico può nascondere un impegno maggiore. Registralo in Lyfta.');
+  const data = { overall: g.key, label: g.label, counts: g.counts, exercises: g.exercises };
+  const worst = ev.filter(r => r.status !== 'in progresso').slice(0, 3).map(r => r.name).join(', ');
+  if (g.key === 'insufficient') return insight('progression', 'Progressione dei carichi', 'insufficiente', `Servono almeno 3 esercizi con 3 sedute su 21 giorni nelle ultime 4 settimane: ne ho ${g.evaluable}.`, { evidence, data });
+  if (g.key === 'declining') return insight('progression', 'Progressione dei carichi', 'attenzione', `Prestazioni in calo su ${g.counts.declining} esercizi su ${g.evaluable}.`, { evidence, action: `Prima di cambiare la scheda verifica sonno, calorie, giorni di riposo e le note del periodo. Esercizi: ${worst}.`, data });
+  if (g.key === 'stalling') return insight('progression', 'Progressione dei carichi', 'attenzione', `Progressione in stallo: ${g.counts.stalled} esercizi su ${g.evaluable} senza nuovi massimi da oltre 6 settimane.`, { evidence, action: `Per ${worst}: prova a salire di una ripetizione per serie a parità di carico, poi aumenta il peso. Se persiste, rivedi volume e recupero della fase.`, data });
+  if (g.key === 'progressing') return insight('progression', 'Progressione dei carichi', 'ok', `Progressione in corso (${g.counts.progressing} esercizi su ${g.evaluable}).`, { evidence, data });
+  if (g.key === 'stable') return insight('progression', 'Progressione dei carichi', 'info', `Prestazioni stabili su ${g.counts.stalled} esercizi su ${g.evaluable}: nessun calo, nessun nuovo massimo recente.`, { evidence, data });
+  return insight('progression', 'Progressione dei carichi', 'info', `Quadro misto: ${g.counts.progressing} in progresso, ${g.counts.stalled} fermi, ${g.counts.declining} in calo.`, { evidence, data });
 }

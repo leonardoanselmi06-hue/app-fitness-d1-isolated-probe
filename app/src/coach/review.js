@@ -18,7 +18,7 @@ export function buildReview({ inputs, targets, using_defaults, version, generati
   const insights = [
     nutritionLoggingInsight(q, today), weighinInsight(weights, today), wt.insight, proteinInsight(q, weights, today, targets),
     energyInsight(q, wt.trend, today, targets), adherenceInsight(analyzed, today, targets), volumeInsight(analyzed, today, targets),
-    progressionInsight(sessions), sleepInsight(sleep, targets), freshnessInsight(weights, today),
+    progressionInsight(sessions, today), sleepInsight(sleep, targets), freshnessInsight(weights, today),
   ].filter(Boolean).sort((a, b) => b.priority - a.priority);
   const actions = insights.filter(i => ACTIONABLE.has(i.status) && i.action).slice(0, 3).map(i => ({ id: i.id, title: i.title, text: i.action }));
   const loggingBad = insights.find(i => i.id === 'nutrition_logging')?.status === 'attenzione';
