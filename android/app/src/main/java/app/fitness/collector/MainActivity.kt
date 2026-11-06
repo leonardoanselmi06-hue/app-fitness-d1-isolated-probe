@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
         val col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(48, 96, 48, 48)
             addView(TextView(context).apply { text = "App Fitness Collector"; textSize = 22f })
-            addView(TextView(context).apply { text = "Legge passi (Samsung Health) e peso da Health Connect e il sonno da Sleep as Android, e li invia al tuo server privato."; setPadding(0, 12, 0, 24) })
+            addView(TextView(context).apply { text = "Legge passi (Samsung Health), peso, grasso corporeo e fasi del sonno da Health Connect e il sonno da Sleep as Android, e li invia al tuo server privato."; setPadding(0, 12, 0, 24) })
             addView(url); addView(cid); addView(cs); addView(grant); addView(sleepBtn); addView(sync); addView(status)
         }
         setContentView(ScrollView(this).apply { addView(col) })

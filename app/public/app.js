@@ -1,4 +1,4 @@
-import { esc, trainingList, weightSummary, weightChart, weightRecent } from '/views.js';
+import { esc, trainingList, weightSummary, weightChart, weightRecent, bodyFatBlock } from '/views.js';
 import { nutritionSummary, nutritionDays, sleepSummary, sleepChart, sleepList, stepsSummary, stepsChart, stepsList } from '/views-daily.js';
 import { coachHeader, coachActions, coachInsights, coachTests } from '/coach.js';
 const $ = id => document.getElementById(id);
@@ -79,8 +79,8 @@ $('trainMore').addEventListener('click', () => loadTraining());
 
 // Viste a periodo (peso, alimentazione, sonno, passi): stessa meccanica, cambiano percorso API e rendering.
 const VIEWS = {
-  peso: { days: 90, path: '/v1/derived/weight', chips: 'weightRange', ids: ['weightSummary', 'weightChart', 'weightRecent'],
-    render: d => [weightSummary(d), weightChart(d.daily), weightRecent(d)] },
+  peso: { days: 90, path: '/v1/derived/weight', chips: 'weightRange', ids: ['weightSummary', 'weightChart', 'bodyFat', 'weightRecent'],
+    render: d => [weightSummary(d), weightChart(d.daily), bodyFatBlock(d), weightRecent(d)] },
   alimentazione: { days: 7, path: '/v1/derived/nutrition', chips: 'nutritionRange', ids: ['nutritionSummary', 'nutritionList'],
     render: d => [nutritionSummary(d), nutritionDays(d)] },
   sonno: { days: 30, path: '/v1/derived/sleep', chips: 'sleepRange', ids: ['sleepSummary', 'sleepChart', 'sleepList'],

@@ -5,6 +5,7 @@ import { getGeneration } from '../ingest/ledger.js';
 import { localDate } from '../core/time.js';
 import { clampInt, round, mean } from './views.js';
 import { dayCompleteness } from './meal-completeness.js';
+import { matchStages } from './sleep-stages.js';
 
 const DAY_MS = 86_400_000;
 const TZ = 'Europe/Rome';
@@ -79,15 +80,20 @@ export async function sleepView(db, subject, { days, now = new Date() } = {}) {
   const { results } = await db.prepare(
     "SELECT record_id, observed_at, payload_json FROM current_records WHERE subject_id = ? AND domain = 'sleep' AND deleted = 0 AND observed_at >= ? ORDER BY observed_at ASC, record_id ASC"
   ).bind(subject, cutoff).all();
-  const nights = results.map(r => {
-    const p = JSON.parse(r.payload_json);
+  const parsed = results.map(r => ({ r, p: JSON.parse(r.payload_json) }));
+  // Le sessioni con fasi (Health Connect) sono record separati: non sono notti, si agganciano alle notti per sovrapposizione temporale.
+  const sessions = parsed.filter(x => x.p.metric === 'sleep_stages').map(x => ({ start: Date.parse(x.p.start_at), end: Date.parse(x.p.end_at), p: x.p }));
+  const nights = parsed.filter(x => x.p.metric !== 'sleep_stages').map(({ r, p }) => {
+    const st = matchStages({ start_at: p.start_at ?? r.observed_at, end_at: p.end_at }, sessions)?.p;
     return {
       id: r.record_id, date: p.local_date ?? null, start_at: p.start_at ?? r.observed_at, end_at: p.end_at ?? null,
       start_local: localTime(p.start_at ?? r.observed_at, p.timezone), end_local: p.end_at ? localTime(p.end_at, p.timezone) : null,
       duration_min: p.duration_min ?? null, short: !!p.short,
       quality_pct: positive(p.quality) == null ? null : round(Math.min(p.quality, 1) * 100, 0), cycles: positive(p.cycles), rating: positive(p.rating),
+      stages: st?.staged ? { light_min: st.light_min, deep_min: st.deep_min, rem_min: st.rem_min, awake_min: st.awake_min, segments: st.segments } : null, // null = fasi non disponibili, mai zero
     };
   }).filter(n => n.duration_min != null);
+  nights.slice(0, -14).forEach(n => { if (n.stages) n.stages = { ...n.stages, segments: null }; }); // segmenti (ipnogramma) solo per le ultime 14 notti: risposta compatta
 
   const regular = nights.filter(n => !n.short); // le notti brevi (< 3 h) restano visibili ma non entrano nelle medie
   const dur = xs => xs.map(n => n.duration_min);
@@ -101,8 +107,16 @@ export async function sleepView(db, subject, { days, now = new Date() } = {}) {
     avg_min_7: avg7, n_7: last7.length, avg_min_prev_7: avgPrev, n_prev_7: prev7.length,
     delta_min_7: last7.length >= MIN_FOR_DELTA && prev7.length >= MIN_FOR_DELTA ? avg7 - avgPrev : null,
     longest: longest && { date: longest.date, duration_min: longest.duration_min }, shortest: shortest && { date: shortest.date, duration_min: shortest.duration_min },
-    nights,
+    stages_7: stageAverages(last7), nights,
   };
+}
+
+/** Media delle fasi sulle sole notti con fasi reali (n_staged = quante); null se nessuna. */
+function stageAverages(nights) {
+  const staged = nights.filter(n => n.stages);
+  if (!staged.length) return null;
+  const avg = k => round(mean(staged.map(n => n.stages[k])), 0);
+  return { n_staged: staged.length, light_min: avg('light_min'), deep_min: avg('deep_min'), rem_min: avg('rem_min'), awake_min: avg('awake_min') };
 }
 
 // ---------------- Passi (Health Connect, origine Samsung Health) ----------------

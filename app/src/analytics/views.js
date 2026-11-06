@@ -2,6 +2,7 @@
 // Nessuna inferenza: i valori mancanti restano null (mai zero) e ogni numero derivato è calcolato qui, in modo testabile.
 // Il peso corporeo di Lyfta (user_body_weight_kg) resta un campo separato e non entra mai nel carico delle serie (DEC-TRAIN-001).
 import { getGeneration } from '../ingest/ledger.js';
+import { bodyFatStats } from './body-fat.js';
 
 export const clampInt = (v, def, min, max) => {
   const n = Number.parseInt(v, 10);
@@ -71,9 +72,10 @@ export async function weightView(db, subject, { days, now = new Date() } = {}) {
   const { results } = await db.prepare(
     "SELECT observed_at, payload_json FROM current_records WHERE subject_id = ? AND domain = 'body' AND deleted = 0 AND observed_at >= ? ORDER BY observed_at ASC, record_id ASC"
   ).bind(subject, cutoff).all();
-  const points = [];
+  const points = [], fat = [];
   for (const r of results) {
     const p = JSON.parse(r.payload_json);
+    if (p.metric === 'body_fat_pct' && typeof p.pct === 'number' && Number.isFinite(p.pct)) fat.push({ time: p.time ?? r.observed_at, local_date: p.local_date ?? null, pct: round(p.pct, 1), origin: p.origin ?? null });
     if (p.metric !== 'body_weight_kg' || typeof p.kg !== 'number' || !Number.isFinite(p.kg)) continue;
     points.push({ time: p.time ?? r.observed_at, local_date: p.local_date ?? null, kg: round(p.kg, 2), origin: p.origin ?? null });
   }
@@ -103,6 +105,6 @@ export async function weightView(db, subject, { days, now = new Date() } = {}) {
     latest, avg_7d: avg7, avg_prev_7d: avgPrev7, delta_7d: delta7,
     change_in_window: points.length > 1 ? round(latest.kg - points[0].kg, 2) : null,
     min: min && { kg: min.kg, local_date: min.local_date }, max: max && { kg: max.kg, local_date: max.local_date },
-    excluded_count: excluded, daily, recent: points.slice(-10).reverse(),
+    body_fat: bodyFatStats(fat), excluded_count: excluded, daily, recent: points.slice(-10).reverse(),
   };
 }

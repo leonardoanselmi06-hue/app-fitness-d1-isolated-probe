@@ -47,8 +47,8 @@ export function trainingList(d) {
 const W = 360, H = 190, PADL = 38, PADR = 12, PADT = 12, PADB = 26;
 
 /** Grafico a linea sul peso giornaliero. viewBox fisso e proporzioni mantenute (niente deformazione del testo). */
-export function weightChart(daily) {
-  if (!daily || daily.length < 2) return '<div class="empty">Servono almeno due giorni di pesate per il grafico.</div>';
+export function weightChart(daily, { label = 'peso', empty = 'Servono almeno due giorni di pesate per il grafico.', dec = 1 } = {}) {
+  if (!daily || daily.length < 2) return `<div class="empty">${esc(empty)}</div>`;
   const kgs = daily.map(d => d.kg), lo = Math.min(...kgs), hi = Math.max(...kgs);
   const pad = Math.max((hi - lo) * 0.15, 0.3), yMin = lo - pad, yMax = hi + pad;
   const t0 = Date.parse(daily[0].date), t1 = Date.parse(daily.at(-1).date), span = Math.max(t1 - t0, 1);
@@ -56,12 +56,12 @@ export function weightChart(daily) {
   const y = k => PADT + (1 - (k - yMin) / (yMax - yMin)) * (H - PADT - PADB);
   const path = daily.map((d, i) => `${i ? 'L' : 'M'}${x(d.date).toFixed(1)} ${y(d.kg).toFixed(1)}`).join(' ');
   const ticks = [yMin + pad * 0.5, (yMin + yMax) / 2, yMax - pad * 0.5];
-  const grid = ticks.map(v => `<line x1="${PADL}" x2="${W - PADR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="grid"/><text x="${PADL - 6}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end" class="axis">${v.toFixed(1).replace('.', ',')}</text>`).join('');
+  const grid = ticks.map(v => `<line x1="${PADL}" x2="${W - PADR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="grid"/><text x="${PADL - 6}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end" class="axis">${v.toFixed(dec).replace('.', ',')}</text>`).join('');
   const last = daily.at(-1);
   const dots = daily.length <= 60 ? daily.map(d => `<circle cx="${x(d.date).toFixed(1)}" cy="${y(d.kg).toFixed(1)}" r="2.4" class="dot"/>`).join('') : '';
   const xl = [daily[0], daily[Math.floor(daily.length / 2)], last];
   const xlabels = xl.map((d, i) => `<text x="${x(d.date).toFixed(1)}" y="${H - 7}" text-anchor="${i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}" class="axis">${esc(shortDate(d.date))}</text>`).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento del peso dal ${esc(fullDate(daily[0].date))} al ${esc(fullDate(last.date))}">${grid}<path d="${path}" class="line"/>${dots}<circle cx="${x(last.date).toFixed(1)}" cy="${y(last.kg).toFixed(1)}" r="4.2" class="dot last"/>${xlabels}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento del ${esc(label)} dal ${esc(fullDate(daily[0].date))} al ${esc(fullDate(last.date))}">${grid}<path d="${path}" class="line"/>${dots}<circle cx="${x(last.date).toFixed(1)}" cy="${y(last.kg).toFixed(1)}" r="4.2" class="dot last"/>${xlabels}</svg>`;
 }
 
 export function weightSummary(d) {
@@ -80,4 +80,18 @@ export function weightRecent(d) {
   const note = d.excluded_count > 0 ? `<p class="subtle">${d.excluded_count} ${d.excluded_count === 1 ? 'pesata esclusa' : 'pesate escluse'} manualmente (non mostrate).</p>` : '';
   if (!d.recent.length) return note;
   return `<ul class="rows">${d.recent.map(p => `<li><span>${esc(fullDate(p.local_date))}</span><strong>${fmtKg(p.kg, 2)}</strong></li>`).join('')}</ul>${note}`;
+}
+
+/** Grasso corporeo (scritto da Renpho in Health Connect). Vuoto se non ci sono misure: mai un valore inventato. */
+export function bodyFatBlock(d) {
+  const f = d.body_fat;
+  if (!f || !f.count) return '';
+  const pc = (v, dec = 1) => (v == null ? '—' : `${fix(v, dec).replace('.', ',')}%`);
+  const sg = v => (v == null ? null : `${v > 0 ? '+' : v < 0 ? '−' : ''}${fix(Math.abs(v), 1).replace('.', ',')} punti`);
+  const delta = sg(f.delta_7d), win = sg(f.change_in_window);
+  const chart = weightChart(f.daily.map(x => ({ date: x.date, kg: x.pct })), { label: 'grasso corporeo', empty: 'Servono almeno due giorni di misure per il grafico.' });
+  return `<h2 class="sec">Grasso corporeo</h2><div class="bigweight"><strong>${pc(f.latest.pct)}</strong><small>ultima misura · ${esc(fullDate(f.latest.local_date))}</small></div>
+<div class="kvgrid"><div class="kv"><span>Media ultimi 7 giorni</span><strong>${pc(f.avg_7d)}</strong><small>${delta ? `${delta} rispetto ai 7 giorni prima` : 'dati insufficienti per il confronto'}</small></div>
+<div class="kv"><span>Nel periodo</span><strong>${win ?? '—'}</strong><small>${f.count} misure</small></div></div>
+<p class="subtle">La bilancia è un'impedenziometria: il valore varia con idratazione e orario, conta il trend, non la singola misura.</p><div class="chartbox">${chart}</div>`;
 }
