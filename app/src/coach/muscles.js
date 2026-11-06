@@ -1,4 +1,4 @@
-// Mappa esercizio -> muscolo principale (solo serie DIRETTE: i muscoli secondari non vengono conteggiati).
+// Mappa esercizio -> muscolo principale (serie DIRETTE) + muscoli secondari (serie INDIRETTE, contate a parte e con peso ridotto: vedi INDIRECT_WEIGHT).
 // Lyfta non fornisce il muscolo: la mappa è nel codice, gli esercizi non riconosciuti vengono elencati, mai indovinati.
 export const MUSCLES = ['petto', 'schiena', 'spalle', 'bicipiti', 'tricipiti', 'quadricipiti', 'femorali', 'polpacci', 'addome'];
 export const MUSCLE_LABEL = { petto: 'Petto', schiena: 'Schiena', spalle: 'Spalle', bicipiti: 'Bicipiti', tricipiti: 'Tricipiti', quadricipiti: 'Quadricipiti', femorali: 'Femorali', polpacci: 'Polpacci', addome: 'Addome', collo: 'Collo', glutei: 'Glutei' };
@@ -39,3 +39,27 @@ export function countsAsSet(set, muscle) {
 
 /** e1RM di Epley per 1..12 ripetizioni con carico esterno > 0; altrimenti null. */
 export const epley = (load, reps) => (typeof load === 'number' && load > 0 && Number.isInteger(reps) && reps >= 1 && reps <= 12 ? load * (1 + reps / 30) : null);
+
+/** Peso di una serie indiretta rispetto a una diretta nel "volume efficace". È un'ipotesi di lavoro (la letteratura propone circa 0,5), dichiarata come tale. */
+export const INDIRECT_WEIGHT = 0.5;
+
+// Muscoli secondari per esercizio (la prima regola che corrisponde vince; l'ordine conta: le varianti specifiche prima).
+const SECONDARY = [
+  [/close-grip bench|diamond push|\bdip\b/, ['petto', 'spalle']],
+  [/bench press|push-up|push up|chest press|chest/, ['tricipiti', 'spalle']],
+  [/shoulder press|overhead press|military press/, ['tricipiti']],
+  [/face pull|shrug/, ['schiena']],
+  [/pull-up|pull up|chin-up|pulldown|pull-down/, ['bicipiti']],
+  [/row\b/, ['bicipiti', 'spalle']],
+  [/romanian|good morning|deadlift/, ['glutei', 'schiena']],
+  [/lunge/, ['glutei', 'femorali']],
+  [/squat|leg press/, ['glutei']],
+];
+
+/** Muscoli secondari dell'esercizio ([] se nessuno noto o se non è un esercizio di forza riconosciuto). */
+export function secondaryOf(name) {
+  const m = classify(name); if (m === 'ignore' || m === 'unmapped') return [];
+  const n = normalizeName(name);
+  for (const [re, list] of SECONDARY) if (re.test(n)) return list.filter(x => x !== m);
+  return [];
+}
