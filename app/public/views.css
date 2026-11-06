@@ -1,0 +1,45 @@
+/* Viste Allenamenti e Peso (mobile-first). Si aggiunge a styles.css. */
+.tabs{display:flex;gap:6px;padding:12px 0 4px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabs a{flex:0 0 auto;padding:9px 16px;border-radius:99px;background:#eaf3f1;color:#26705f;font-size:13px;font-weight:750;text-decoration:none}
+.tabs a[aria-current="page"]{background:#1d6658;color:#fff}
+.view[hidden]{display:none}
+.view-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 14px}
+.view-head h1{margin:0;font-size:24px;letter-spacing:-.8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:7px 12px;border-radius:99px;background:#eaf3f1;color:#26705f;font-size:12px;font-weight:750}
+.chip[aria-pressed="true"]{background:#1d6658;color:#fff}
+.wcard{background:#fff;border:1px solid #e5ebef;border-radius:14px;margin-bottom:9px;padding:0 16px}
+.wcard summary{display:flex;gap:14px;align-items:center;padding:14px 0;cursor:pointer;list-style:none}
+.wcard summary::-webkit-details-marker{display:none}
+.wcard summary::after{content:"›";margin-left:auto;color:#9aa7b1;font-size:22px;transition:transform .15s}
+.wcard[open] summary::after{transform:rotate(90deg)}
+.wcard .date{font-weight:800;color:#277665;font-size:13px;white-space:nowrap;min-width:48px}
+.wmain strong{display:block;font-size:14px}
+.wmain small{display:block;font-size:11px;color:#8797a6;margin-top:3px;line-height:1.4}
+.ex{padding:10px 0;border-top:1px solid #f0f3f5}
+.ex strong{font-size:13px}
+.sets{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.sets li{display:flex;gap:8px;align-items:center;font-size:13px;color:#43566a}
+.tag{font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;background:#eef7f5;color:#33816c;border-radius:6px;padding:2px 6px}
+.tag.warn{background:#fff3da;color:#93601b}
+.bigweight{margin:6px 0 16px}
+.bigweight strong{display:block;font-size:44px;letter-spacing:-2px;line-height:1.05}
+.bigweight small{color:#8797a6;font-size:12px}
+.kvgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:16px}
+.kv{background:#fff;border:1px solid #e5ebef;border-radius:14px;padding:14px}
+.kv span{display:block;font-size:11px;color:#81909e;margin-bottom:8px}
+.kv strong{font-size:20px;letter-spacing:-.6px}
+.kv small{display:block;color:#9aa7b1;margin-top:6px;font-size:11px;line-height:1.4}
+.chartbox{background:#fff;border:1px solid #e5ebef;border-radius:16px;padding:14px 8px 8px;margin-bottom:16px;max-width:760px}
+.chartbox svg{display:block;width:100%;height:auto}
+.chartbox .line{fill:none;stroke:#1d6658;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chartbox .grid{stroke:#e8eef2;stroke-width:1}
+.chartbox .axis{font-size:10px;fill:#8797a6}
+.chartbox .dot{fill:#fff;stroke:#1d6658;stroke-width:1.6}
+.chartbox .dot.last{fill:#1d6658}
+.rows{list-style:none;margin:0 0 10px;padding:0;background:#fff;border:1px solid #e5ebef;border-radius:14px}
+.rows li{display:flex;justify-content:space-between;padding:12px 16px;border-top:1px solid #f0f3f5;font-size:13px}
+.rows li:first-child{border-top:0}
+.more{display:block;margin:14px auto;background:#eaf3f1;color:#26705f}
+.view h2.sec{font-size:15px;margin:22px 0 10px}
+@media(min-width:700px){.kvgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}

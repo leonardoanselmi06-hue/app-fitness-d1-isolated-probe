@@ -5,12 +5,13 @@ import { AppError } from './core/errors.js';
 import { DOMAINS } from './ingest/envelope.js';
 import { getGeneration, getOperation, listCanonical } from './ingest/ledger.js';
 import { summarize } from './analytics/summary.js';
+import { trainingView, weightView } from './analytics/views.js';
 
 const json = (status, body, extra = {}) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...extra },
 });
 
-export function createApp({ db, auth, assets, jobs = {} }) {
+export function createApp({ db, auth, assets, jobs = {}, now = () => new Date() }) {
   return async function fetch(request) {
     const url = new URL(request.url);
     try {
@@ -47,6 +48,8 @@ export function createApp({ db, auth, assets, jobs = {} }) {
           return json(200, op);
         }
         if (url.pathname === '/v1/derived/summary') return json(200, await summarize(db, subject));
+        if (url.pathname === '/v1/derived/training') return json(200, await trainingView(db, subject, { limit: url.searchParams.get('limit'), offset: url.searchParams.get('offset') }));
+        if (url.pathname === '/v1/derived/weight') return json(200, await weightView(db, subject, { days: url.searchParams.get('days'), now: now() }));
         throw new AppError(404, 'not_found');
       }
       if (request.method !== 'GET' && request.method !== 'HEAD') throw new AppError(405, 'method_not_allowed');
