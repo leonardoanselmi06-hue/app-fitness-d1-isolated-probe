@@ -70,3 +70,11 @@ per il caricamento da D1 (target versionati, tabella assente → default) e per 
 ## Nota dati Lyfta (verificata su D1, 6 nov 2026)
 - `is_completed` è false per ~90% delle serie registrate (da maggio 2025) ed è true quasi solo sulle serie a tempo/cardio: il flag NON è usato né per i conteggi né per le etichette. Una serie di lavoro conta se ha ripetizioni (o ≥10 s per addome/collo).
 - La durata delle serie a tempo arriva come testo "m:ss" (es. "0:40", "1:00"; minuti anche oltre 59). Fino al 6 nov 2026 non veniva letta (restava null): corretto in `durationSec`; i record già salvati si aggiornano alla prossima sincronizzazione Lyfta. Le serie di plank contano per l'addome (≥10 s).
+
+## Consigli dell'IA (v1, `src/ai/`)
+- Il server costruisce un **dossier** deterministico (obiettivo/fase, target, insight del Coach, confronto 14 gg, aderenza alla scheda, scheda, note, lacune dei dati, consigli precedenti con riscontro dell'utente). Il modello **ragiona soltanto sul dossier**; nessuna identità nel dossier. Il testo delle note parte solo se `ai_send_notes` è attivo (default sì, interruttore nella PWA).
+- Risposta JSON validata (riassunto, ≤5 priorità con area, perché, evidenze, azioni misurabili, fiducia, orizzonte di verifica; da tenere d'occhio; domande). Un solo nuovo tentativo se il formato è errato. I numeri citati come evidenza sono verificati contro il dossier (±1 %): quelli non trovati sono segnalati con ⚠, non scartati.
+- Ogni consiglio è salvato (`ai_advice`: impronta e dossier, modello, versione del prompt, risposta, non verificati, token). Riscontro per priorità: seguito / in parte / non seguito / non utile (`ai_advice_feedback`).
+- Cache 6 h sull'impronta dei soli dati (non con tema o `force`); tetto 8 analisi per giorno UTC.
+- Configurazione solo da variabili del Worker: `AI_PROVIDER` (gemini|openai), `AI_MODEL`, `AI_API_KEY` (secret), `AI_BASE_URL` (https, solo openai). Gli errori espongono solo codici.
+- Endpoint solo proprietario: `GET /v1/ai/status`, `POST /v1/ai/advice {focus?, force?}`, `GET /v1/ai/advice?id=`, `POST /v1/ai/settings {send_notes}`, `POST /v1/ai/feedback`. Non è consulenza medica.
