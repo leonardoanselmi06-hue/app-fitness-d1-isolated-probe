@@ -29,7 +29,7 @@ export async function buildDossier(db, subject, { now, sendNotes }) {
   const adhesion = adh.adherence;
   return {
     as_of: today,
-    goal_context: a ? { phase: a.name, goal: a.goal ?? null, goal_type: a.goal_type ?? null, method: a.method ?? null, started: a.start_date, weeks_in: weeksIn } : { phase: null, note: 'Nessuna fase attiva: obiettivo non dichiarato (uso massa muscolare come ipotesi).' },
+    goal_context: a ? { phase: a.name, goal: a.goal ?? null, goal_type: a.goal_type ?? null, declared: !!a.goal_type, method: a.method ?? null, started: a.start_date, weeks_in: weeksIn } : { phase: null, declared: false, note: 'Nessuna fase attiva con obiettivo: l\'obiettivo dell\'utente NON è dichiarato. I target qui sotto sono default generici per la massa muscolare, non una scelta dell\'utente.' },
     targets: { weight_pct_week: vals.weight_pct_week, protein_g_per_kg: vals.protein_g_per_kg, sets_per_muscle_week: vals.sets_per_muscle_week, strength_sessions_per_week: vals.strength_sessions_per_week, min_weekly_frequency_per_muscle: vals.min_weekly_frequency_per_muscle, sleep_min_hours: vals.sleep_min_hours, source: review.targets.version?.source ?? 'default' },
     coach: { summary: review.summary, insights: review.insights.map(insightBrief) },
     compare_14d_vs_previous_14d: { current: cmp.current, previous: cmp.previous, metrics: cmp.metrics.map(m => ({ metric: m.label, unit: m.unit, current: m.current.value, previous: m.previous.value, delta: m.delta, delta_pct: m.delta_pct, n_current: m.current.n, n_previous: m.previous.n })), training: cmp.training ? { sessions: cmp.training.sessions, sets_per_week: cmp.training.sets_total_per_week, muscles: cmp.training.muscles.slice(0, 10) } : null },
