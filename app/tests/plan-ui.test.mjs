@@ -62,3 +62,24 @@ test('richieste: da valori del modulo a body API, recupero m:ss, rimozione, fase
 test('errori: messaggi in italiano per i codici del server', () => {
   assert.match(errorText('stale'), /cambiato/); assert.match(errorText('invalid_rx'), /non validi/); assert.match(errorText('boh'), /Riprova/); assert.match(errorText('phase_closed'), /chiusa/);
 });
+
+import { reportView } from '../public/plan-report.js';
+import { importForm } from '../public/plan-forms.js';
+test('report di fase: sezioni, formattazione italiana, null come "—", testo escapato', () => {
+  const r = { phase: { name: 'Massa <1>', goal: 'g', method: 'm' }, period: { start: '2026-10-05', last_day: '2026-11-04', weeks: 4.4 }, weight: { start_kg: 70.15, end_kg: 71.05, change_kg: 0.9, rate_pct_week: 0.31, note: null }, body_fat: { n: 2, start_pct: 22.4, end_pct: 21.8 },
+    nutrition: { avg_kcal: 2200, avg_protein_g: 140, protein_g_per_kg: 1.98, complete_days: 3, calendar_days: 31, note: 'Meno di 10 giorni completi: medie poco affidabili.' }, sleep: { avg_min: 450, nights: 2 }, steps: { avg: 9000, days: 2 },
+    training: { sessions_total: 8, sessions_strength: 4, strength_per_week: 0.9, avg_rest_sec: 183, avg_rir_logged: 1.7, rir_sets_with_value: 20, sets_per_muscle_week: { Petto: 3.6 }, progression: [{ exercise: 'Bench <x>', metric: 'e1rm_kg', first: 60, last: 66, pct: 10, sessions: 4, trend: 'progresso' }] },
+    scheda: [{ label: 'A', exercises: [{ exercise: 'Bench', sets: 4, reps_min: 6, reps_max: 10, rir: 2, rest_sec: 195 }] }], scheda_changes: 3, notes: [{ date: '2026-10-20', category: 'malattia', title: 'Influenza' }] };
+  const h = reportView(r);
+  assert.match(h, /Massa &lt;1&gt;/); assert.match(h, /70,2 → 71,1 kg/); assert.match(h, /\+0,9 kg/); assert.match(h, /\+0,31 %\/sett\./); assert.match(h, /3 giorni completi su 31/); assert.match(h, /3:03/); assert.match(h, /7 h 30 min/);
+  assert.match(h, /\+10%/); assert.match(h, /2\.200 kcal/); assert.match(h, /<strong>9\.000<\/strong>/); assert.match(h, /Bench &lt;x&gt;/); assert.match(h, /Bench: 4 serie × 6–10 · RIR 2 · rec 3:15/); assert.match(h, /poco affidabili/); assert.match(h, /Influenza/); assert.ok(!h.includes('<x>'));
+  const empty = reportView({ ...r, weight: { start_kg: null, end_kg: null, change_kg: null, rate_pct_week: null, note: 'Nessuna pesata nella fase.' }, nutrition: { ...r.nutrition, avg_kcal: null }, training: { ...r.training, avg_rest_sec: null, avg_rir_logged: null, progression: [], sets_per_muscle_week: {} } });
+  assert.match(empty, /— → — kg/); assert.match(empty, /ritmo non calcolabile/); assert.ok(!empty.includes('NaN')); assert.match(reportView(null), /Nessun report/);
+});
+test('importazione da Lyfta: modulo con caselle e richiesta con i soli titoli scelti', () => {
+  const sug = { from: '2026-10-05', to: '2026-11-06', days: [{ title: 'A - Upper <1>', sessions: 4, last_date: '2026-10-30', exercises: [{ exercise: 'Bench' }, { exercise: 'Plank' }] }, { title: 'Una tantum', sessions: 1, last_date: '2026-10-15', exercises: [{ exercise: 'Curl' }] }] };
+  const f = importForm({ sug, phase: { id: 2 } });
+  assert.match(f, /name="t0" value="A - Upper &lt;1&gt;" checked/); assert.ok(!/name="t1"[^>]*checked/.test(f)); assert.match(f, /data-submit="import"/); assert.match(f, /import-refresh/); assert.match(importForm({ sug: { ...sug, days: [] }, phase: { id: 2 } }), /Nessun allenamento di forza/);
+  assert.deepEqual(buildRequest('import', { from: '2026-10-05', to: '2026-11-06', t0: 'A - Upper <1>', t2: 'B' }, { phaseId: '2' }), { path: '/v1/plan/import-lyfta', body: { phase_id: 2, from: '2026-10-05', to: '2026-11-06', titles: ['A - Upper <1>', 'B'] } });
+  assert.match(planScheda({ ...view, active: { ...view.active, days: [] } }), /data-act="import"/); assert.match(planScheda(view), /data-act="import"/);
+});

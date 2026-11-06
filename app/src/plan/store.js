@@ -16,6 +16,10 @@ export async function listVersions(db, subject, { entity = null, phaseId = null 
   const { results } = await db.prepare(`SELECT ${COLS} FROM plan_versions WHERE subject_id = ? AND ${sql} ORDER BY entity_key ASC, valid_from ASC, id ASC`).bind(subject, bind).all();
   return results.map(parse);
 }
+export async function listNoteVersions(db, subject) {
+  const { results } = await db.prepare(`SELECT ${COLS} FROM plan_versions WHERE subject_id = ? AND kind = 'note' ORDER BY entity_key ASC, valid_from ASC, id ASC`).bind(subject).all();
+  return results.map(parse);
+}
 /** Versione in vigore a `day` (intervallo [valid_from, valid_to)). */
 export const effective = (vers, day) => vers.find(v => v.valid_from <= day && (v.valid_to == null || day < v.valid_to)) ?? null;
 
@@ -96,4 +100,22 @@ export async function closePhase(db, subject, r, { today, nowIso, report = null 
   ]);
   insist((res[0].meta?.changes ?? 1) === 1, 409, 'phase_closed');
   return { phase_id: phase.id, end_date: end };
+}
+
+/** Importa giorni ed esercizi proposti da Lyfta (`days` = suggerimento già calcolato dal server) nella fase attiva: UNA sola scrittura atomica.
+ *  Le entità già presenti vengono saltate (reimportare è sicuro). */
+export async function importDays(db, subject, r, days, { today, nowIso }) {
+  insist(Number.isInteger(r.phase_id), 422, 'invalid_phase_id');
+  const phase = await getPhase(db, subject, r.phase_id); insist(phase, 404, 'phase_not_found'); insist(phase.status === 'active', 409, 'phase_closed');
+  const valid_from = r.valid_from ?? phase.start_date; insist(validDay(valid_from) && valid_from >= phase.start_date && valid_from <= addDays(today, 60), 422, 'invalid_valid_from');
+  const { results } = await db.prepare('SELECT entity_key FROM plan_versions WHERE subject_id = ? AND phase_id = ? AND valid_to IS NULL').bind(subject, phase.id).all();
+  const have = new Set(results.map(x => x.entity_key)), stmts = [], out = { days_added: 0, exercises_added: 0, skipped: 0 };
+  const add = (kind, key, stored) => { if (have.has(key)) { out.skipped++; return false; } have.add(key); stmts.push(db.prepare(`${INSERT} VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?)`).bind(subject, phase.id, kind, key, valid_from, stableStringify(stored), 'Importata da Lyfta', nowIso)); return true; };
+  for (const d of days) {
+    const dk = slug(d.title); if (!dk) continue;
+    if (add('day', `day:${phase.id}:${dk}`, { label: d.title, ...validateData('day', { order: d.order, focus: null }) })) out.days_added++;
+    d.exercises.forEach((e, i) => { const ek = slug(e.exercise); if (ek && add('rx', `rx:${phase.id}:${dk}:${ek}`, { day: d.title, exercise: e.exercise, ...validateData('rx', { order: Math.min(i, 30), sets: e.sets, reps_min: e.reps_min, reps_max: e.reps_max, rir: e.rir, rest_sec: e.rest_sec, method: null, note: null }) })) out.exercises_added++; });
+  }
+  if (stmts.length) { try { await db.batch(stmts); } catch (e) { throw conflict(e); } }
+  return out;
 }

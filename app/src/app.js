@@ -9,6 +9,7 @@ import { trainingView, weightView } from './analytics/views.js';
 import { nutritionView, sleepView, stepsView } from './analytics/daily-views.js';
 import { coachReview } from './coach/review.js';
 import { planRoute } from './plan/routes.js';
+import { buildPhaseReport } from './plan/report.js';
 
 const json = (status, body, extra = {}) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...extra },
@@ -39,7 +40,7 @@ export function createApp({ db, auth, assets, jobs = {}, now = () => new Date() 
           if (!jobs.fatsecretSync) throw new AppError(404, 'not_found');
           return json(200, await jobs.fatsecretSync());
         }
-        if (url.pathname.startsWith('/v1/plan/') || url.pathname === '/v1/plan') return json(200, await planRoute(request, url, { db, subject, now, buildReport: jobs.phaseReport }));
+        if (url.pathname.startsWith('/v1/plan/') || url.pathname === '/v1/plan') return json(200, await planRoute(request, url, { db, subject, now, buildReport: jobs.phaseReport ?? buildPhaseReport }));
         if (request.method !== 'GET') throw new AppError(405, 'method_not_allowed');
         const m = url.pathname.match(/^\/v1\/(canonical|operations)\/([A-Za-z0-9_.:-]{1,120})$/);
         if (m?.[1] === 'canonical') {

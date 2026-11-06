@@ -60,7 +60,7 @@ export function volumeInsight(analyzed, today, targets) {
 }
 
 /** Miglior valore per esercizio e seduta: e1RM (Epley) se c'è carico esterno, altrimenti ripetizioni. */
-function exerciseSeries(sessions) {
+export function exerciseSeries(sessions) {
   const map = new Map();
   for (const s of sessions) {
     for (const ex of s.exercises) {

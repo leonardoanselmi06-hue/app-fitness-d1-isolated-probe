@@ -28,8 +28,9 @@ async function loadWeights(db, subject, now) {
 }
 
 /** Allenamenti degli ultimi 84 giorni (solo dati, nessuna classificazione). */
-async function loadSessions(db, subject, today) {
-  const from = addDays(today, -84);
+async function loadSessions(db, subject, today) { return loadSessionsBetween(db, subject, addDays(today, -84), today); }
+/** Allenamenti con giorno locale in [from, to] (inclusi). */
+export async function loadSessionsBetween(db, subject, from, today) {
   const { results } = await db.prepare(
     `SELECT record_id, payload_json FROM current_records WHERE subject_id = ? AND domain = 'training' AND deleted = 0
        AND json_extract(payload_json, '$.local_date') >= ? AND json_extract(payload_json, '$.local_date') <= ?
