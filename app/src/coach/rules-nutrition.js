@@ -1,6 +1,6 @@
 // Regole di alimentazione: completezza del diario, proteine e stima del fabbisogno energetico.
 // Prima si valuta se il diario è affidabile: senza giorni completi nessuna conclusione energetica.
-import { addDays, calendarDays, mean, roundTo, fmt, insight } from './stats.js';
+import { addDays, calendarDays, mean, roundTo, fmt, sgn, insight } from './stats.js';
 
 const KCAL_PER_KG = 7700;
 
@@ -51,12 +51,12 @@ export function energyInsight(q, trend, today, targets) {
   const data = { intake_kcal: intake, tdee_kcal: tdee, half_width_kcal: half, confidence };
   if (tdee < 1500 || tdee > 5000) return insight('energy_balance', 'Fabbisogno energetico', 'insufficiente', 'La stima del fabbisogno non è plausibile: probabilmente il diario è incompleto o il peso troppo variabile.', { evidence: ev, data });
   if (confidence === 'bassa') return insight('energy_balance', 'Fabbisogno energetico', 'insufficiente', `La stima del fabbisogno è ancora troppo incerta (± ${fmt(half, 0)} kcal): non ti do un numero finché non migliorano diario e pesate.`, { evidence: ev, data });
-  const kg = reg.mean_y, { min, max } = targets.weight_gain_pct_week;
+  const kg = reg.mean_y, { min, max } = targets.weight_pct_week ?? targets.weight_gain_pct_week, massa = (targets.goal_type ?? 'massa') === 'massa';
   const surplus = pct => (pct / 100) * kg * KCAL_PER_KG / 7;
   const lo = Math.max(1800, roundTo(tdee + surplus(min), 50)), hi = Math.max(lo, roundTo(tdee + surplus(max), 50));
-  ev.push(`Per ${fmt(min, 2)}–${fmt(max, 2)} %/sett. servono circa ${lo}–${hi} kcal/giorno`);
+  ev.push(`Per ${massa ? `${fmt(min, 2)}–${fmt(max, 2)}` : `${sgn(min, 2)} … ${sgn(max, 2)}`} %/sett. servono circa ${lo}–${hi} kcal/giorno`);
   Object.assign(data, { target_kcal: [lo, hi] });
-  if (intake < lo - 150) return insight('energy_balance', 'Fabbisogno energetico', 'attenzione', `Mangi meno di quanto serve per crescere (${fmt(intake, 0)} contro ${lo}–${hi} kcal).`, { evidence: ev, action: `Porta l'apporto verso ${lo}–${hi} kcal al giorno (oggi ${fmt(intake, 0)}), aggiungendo ad esempio una colazione o uno spuntino più calorico.`, data });
+  if (intake < lo - 150) return insight('energy_balance', 'Fabbisogno energetico', 'attenzione', (massa ? `Mangi meno di quanto serve per crescere (${fmt(intake, 0)} contro ${lo}–${hi} kcal).` : `Mangi meno di quanto serve per il ritmo scelto (${fmt(intake, 0)} contro ${lo}–${hi} kcal).`), { evidence: ev, action: `Porta l'apporto verso ${lo}–${hi} kcal al giorno (oggi ${fmt(intake, 0)}), aggiungendo ad esempio una colazione o uno spuntino più calorico.`, data });
   if (intake > hi + 150) return insight('energy_balance', 'Fabbisogno energetico', 'attenzione', `Mangi più di quanto serve per il ritmo scelto (${fmt(intake, 0)} contro ${lo}–${hi} kcal).`, { evidence: ev, action: `Riporta l'apporto verso ${lo}–${hi} kcal al giorno (oggi ${fmt(intake, 0)}).`, data });
   return insight('energy_balance', 'Fabbisogno energetico', 'ok', `Apporto in linea con l'obiettivo (${fmt(intake, 0)} kcal; indicati ${lo}–${hi}).`, { evidence: ev, data });
 }

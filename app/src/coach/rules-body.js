@@ -16,18 +16,18 @@ export function weightRegression(daily, today, windowDays, { minPoints = 4, minS
 
 export function weightTrendInsight(weights, today, targets) {
   const { reg, n, span } = weightRegression(weights.daily, today, 28);
-  const goal = targets.weight_gain_pct_week;
+  const goal = targets.weight_pct_week ?? targets.weight_gain_pct_week, massa = (targets.goal_type ?? 'massa') === 'massa';
   if (!reg) return { trend: null, insight: insight('weight_trend', 'Andamento del peso', 'insufficiente', `Servono almeno 4 pesate distribuite su 14 giorni: negli ultimi 28 ne ho ${n} su ${span} giorni.`, { evidence: [`Pesate giornaliere (28 g): ${n}`] }) };
   const m = reg.mean_y, est = pctWeek(reg.slope, m), lo = pctWeek(reg.ci[0], m), hi = pctWeek(reg.ci[1], m);
   let verdict, status, summary;
-  if (hi < -1) { verdict = 'calo_rapido'; status = 'attenzione'; summary = `Il peso sta scendendo più di 1% a settimana (${sgn(est, 2)} %/sett.): per un obiettivo di massa è un segnale da controllare.`; }
-  else if (hi < goal.min) { verdict = 'sotto'; status = 'attenzione'; summary = `Il peso cresce meno dell'obiettivo (${sgn(est, 2)} %/sett. contro ${fmt(goal.min, 2)}–${fmt(goal.max, 2)}).`; }
-  else if (lo > goal.max) { verdict = 'sopra'; status = 'attenzione'; summary = `Il peso cresce più in fretta dell'obiettivo (${sgn(est, 2)} %/sett. contro ${fmt(goal.min, 2)}–${fmt(goal.max, 2)}): rischio di più grasso che muscolo.`; }
-  else if (lo >= goal.min && hi <= goal.max) { verdict = 'dentro'; status = 'ok'; summary = `Il peso cresce in linea con l'obiettivo (${sgn(est, 2)} %/sett.).`; }
+  if (hi < -1) { verdict = 'calo_rapido'; status = 'attenzione'; summary = massa ? `Il peso sta scendendo più di 1% a settimana (${sgn(est, 2)} %/sett.): per un obiettivo di massa è un segnale da controllare.` : `Il peso sta scendendo più di 1% a settimana (${sgn(est, 2)} %/sett.): un ritmo così rapido rischia di costare massa muscolare.`; }
+  else if (hi < goal.min) { verdict = 'sotto'; status = 'attenzione'; summary = massa ? `Il peso cresce meno dell'obiettivo (${sgn(est, 2)} %/sett. contro ${fmt(goal.min, 2)}–${fmt(goal.max, 2)}).` : `Il peso scende più del previsto (${sgn(est, 2)} %/sett. contro ${sgn(goal.min, 2)}…${sgn(goal.max, 2)}).`; }
+  else if (lo > goal.max) { verdict = 'sopra'; status = 'attenzione'; summary = massa ? `Il peso cresce più in fretta dell'obiettivo (${sgn(est, 2)} %/sett. contro ${fmt(goal.min, 2)}–${fmt(goal.max, 2)}): rischio di più grasso che muscolo.` : `Il peso sale o scende meno del previsto (${sgn(est, 2)} %/sett. contro ${sgn(goal.min, 2)}…${sgn(goal.max, 2)}).`; }
+  else if (lo >= goal.min && hi <= goal.max) { verdict = 'dentro'; status = 'ok'; summary = massa ? `Il peso cresce in linea con l'obiettivo (${sgn(est, 2)} %/sett.).` : `Il peso si muove in linea con l'obiettivo (${sgn(est, 2)} %/sett.).`; }
   else { verdict = 'incerto'; status = 'info'; summary = `Il trend (${sgn(est, 2)} %/sett.) è troppo incerto per dire se sei in linea: l'intervallo copre più esiti.`; }
   const evidence = [
     `Pendenza 28 g: ${sgn(est, 2)} %/sett. (intervallo 95%: ${sgn(lo, 2)} … ${sgn(hi, 2)})`,
-    `${n} pesate su ${span} giorni, peso medio ${fmt(m, 1)} kg`, `Obiettivo: ${fmt(goal.min, 2)}–${fmt(goal.max, 2)} %/sett.`,
+    `${n} pesate su ${span} giorni, peso medio ${fmt(m, 1)} kg`, `Obiettivo: ${massa ? `${fmt(goal.min, 2)}–${fmt(goal.max, 2)}` : `${sgn(goal.min, 2)} … ${sgn(goal.max, 2)}`} %/sett.${targets.goal_type ? ` (${targets.goal_type})` : ''}`,
   ];
   const long = weightRegression(weights.daily, today, 84, { minPoints: 6, minSpan: 42 }).reg;
   if (long) evidence.push(`Su 84 g: ${sgn(pctWeek(long.slope, long.mean_y), 2)} %/sett.`);

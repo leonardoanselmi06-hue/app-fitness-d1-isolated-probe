@@ -5,9 +5,9 @@ const STATUS = { attenzione: ['Da sistemare', 'warn'], ok: ['In linea', 'ok'], i
 const tag = status => { const [label, cls] = STATUS[status] ?? ['—', 'muted']; return `<span class="tag ${cls}">${esc(label)}</span>`; };
 
 export function coachHeader(d) {
-  const t = d.targets, v = t.version;
+  const t = d.targets, v = t.version, wr = t.values?.weight_pct_week, w = wr ? `${String(wr.min).replace('.', ',')} … ${String(wr.max).replace('.', ',')}` : null;
   const plan = v
-    ? `<strong>Fase: ${esc(v.phase)}</strong><small>${esc(v.goal)} · target dal ${esc(fullDate(v.valid_from))}</small>`
+    ? `<strong>Fase: ${esc(v.phase)}</strong><small>${esc(v.goal)}${v.goal_type ? ` · ${esc(v.goal_type)}` : ''} · target dal ${esc(fullDate(v.valid_from))}${v.source === 'phase' ? ' · definiti nella fase (scheda Piano)' : ''}</small>${w ? `<small>Ritmo del peso previsto: ${esc(w)} %/sett.</small>` : ''}`
     : '<strong>Target generici</strong><small>Non hai ancora impostato i tuoi obiettivi: uso valori generici per la massa muscolare.</small>';
   const s = d.summary;
   return `<div class="coachplan">${plan}</div>

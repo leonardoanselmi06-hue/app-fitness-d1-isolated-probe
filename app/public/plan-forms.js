@@ -28,13 +28,32 @@ export const noteForm = ({ n, today }) => wrap(n ? 'Modifica nota' : 'Nuova nota
   dateF('Data dell\'evento', 'date', n?.date ?? today) + f('Categoria', `<select name="category">${CATEGORIES.map(c => `<option${(n?.category ?? 'evento') === c ? ' selected' : ''}>${c}</option>`).join('')}</select>`)
   + f('Titolo', inp('title', n?.title ?? '', 'required maxlength="80"')) + f('Testo', `<textarea name="text" rows="4" maxlength="5000">${esc(n?.text ?? '')}</textarea>`)
   + actions(n ? '<button type="button" class="pbtn danger" data-act="note-remove">Elimina</button>' : ''), `data-submit="${n ? 'note-edit' : 'note-new'}" ${n ? `data-version="${n.version_id}" data-id="${esc(n.note_id)}"` : ''}`);
+const GOALS = [['', '—'], ['massa', 'Massa'], ['mantenimento', 'Mantenimento'], ['definizione', 'Definizione']];
+const tv = (t, a, b) => (t?.[a]?.[b] ?? '');
+const numIn = (name, v, ph = '', step = '0.05') => `<input name="${name}" type="text" inputmode="decimal" value="${esc(v === '' || v == null ? '' : String(v).replace('.', ','))}" placeholder="${esc(ph)}" autocomplete="off">`;
+const targetsFields = t => `<details class="ptargets"${t ? ' open' : ''}><summary>Target personalizzati (facoltativi)</summary><p class="subtle">Lasciati vuoti valgono i valori predefiniti del tipo di obiettivo (massa +0,25…+0,5 %/sett.; mantenimento −0,1…+0,1; definizione −0,7…−0,3). Sono indicazioni generali, non consulenza medica.</p>
+<div class="pgrid">${f('Peso %/sett. min', numIn('w_min', tv(t, 'weight_pct_week', 'min'), '0,25'))}${f('Peso %/sett. max', numIn('w_max', tv(t, 'weight_pct_week', 'max'), '0,5'))}</div>
+<div class="pgrid">${f('Proteine g/kg min', numIn('p_min', tv(t, 'protein_g_per_kg', 'min'), '1,6'))}${f('Proteine g/kg max', numIn('p_max', tv(t, 'protein_g_per_kg', 'max'), '2,2'))}</div>
+<div class="pgrid">${f('Serie/muscolo/sett. min', numIn('s_min', tv(t, 'sets_per_muscle_week', 'min'), '10'))}${f('Serie/muscolo/sett. max', numIn('s_max', tv(t, 'sets_per_muscle_week', 'max'), '20'))}</div>
+<div class="pgrid">${f('Sedute di forza/sett.', numIn('sessions', t?.strength_sessions_per_week ?? '', '4'))}${f('Frequenza min./muscolo', numIn('freq', t?.min_weekly_frequency_per_muscle ?? '', '2'))}${f('Sonno min. (ore)', numIn('sleep_h', t?.sleep_min_hours ?? '', '7'))}</div></details>`;
 export const phaseForm = ({ mode, a, today, closed = [] }) => wrap(mode === 'edit' ? 'Modifica fase' : 'Nuova fase',
-  f('Nome', inp('name', a?.name ?? '', 'required maxlength="60"'), 'es. Massa 2') + f('Obiettivo', inp('goal', a?.goal ?? '', 'maxlength="200"')) + f('Metodologia', inp('method', a?.method ?? '', 'maxlength="300"'), 'es. Upper/Lower, top set + back-off')
+  f('Nome', inp('name', a?.name ?? '', 'required maxlength="60"'), 'es. Massa 2') + f('Obiettivo', inp('goal', a?.goal ?? '', 'maxlength="200"'))
+  + f('Tipo di obiettivo', `<select name="goal_type">${GOALS.map(([v, l]) => `<option value="${v}"${(a?.goal_type ?? '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`, 'Decide i target del Coach (ritmo del peso, proteine) per questa fase')
+  + targetsFields(a?.targets) + f('Metodologia', inp('method', a?.method ?? '', 'maxlength="300"'), 'es. Upper/Lower, top set + back-off')
   + (mode === 'edit' ? dateF('Valido dal', 'valid_from', today, a.start_date) + f('Motivo del cambio', inp('reason', '', 'maxlength="200"')) : dateF('Inizio', 'start_date', today)
     + (closed.length ? f('Parti dalla scheda di', `<select name="copy_from"><option value="">Scheda vuota</option>${closed.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>`) : '')) + actions(),
   `data-submit="${mode === 'edit' ? 'phase-edit' : 'phase-new'}" ${a ? `data-version="${a.phase_version_id}" data-phase="${a.id}"` : ''}`);
 export const closeForm = ({ a, today }) => wrap(`Chiudi ${a.name}`, `<p class="subtle">La fase viene congelata: scheda e storico restano consultabili, non più modificabili.</p>` + dateF('Ultimo giorno della fase', 'last_day', today, a.start_date) + actions(), `data-submit="phase-close" data-phase="${a.id}"`);
 
+const dec = (v, label) => { if (v == null || String(v).trim() === '') return null; const n = Number(String(v).trim().replace(',', '.')); if (!Number.isFinite(n)) throw new Error(`${label}: inserisci un numero.`); return n; };
+const pairOf = (v, a, b, label) => { const x = dec(v[a], label), y = dec(v[b], label); if (x == null && y == null) return null; if (x == null || y == null) throw new Error(`${label}: inserisci sia il minimo sia il massimo.`); if (y < x) throw new Error(`${label}: il massimo non può essere minore del minimo.`); return { min: x, max: y }; };
+/** Target personalizzati dai campi del modulo (null se vuoti). */
+export function targetsFrom(v) {
+  const t = { weight_pct_week: pairOf(v, 'w_min', 'w_max', 'Peso'), protein_g_per_kg: pairOf(v, 'p_min', 'p_max', 'Proteine'), sets_per_muscle_week: pairOf(v, 's_min', 's_max', 'Serie per muscolo'),
+    strength_sessions_per_week: dec(v.sessions, 'Sedute'), min_weekly_frequency_per_muscle: dec(v.freq, 'Frequenza'), sleep_min_hours: dec(v.sleep_h, 'Sonno') };
+  for (const k of Object.keys(t)) if (t[k] == null) delete t[k];
+  return Object.keys(t).length ? t : null;
+}
 const toInt = v => (v === '' || v == null ? null : Number(v));
 const text = v => (v == null || String(v).trim() === '' ? null : String(v).trim());
 export const parseRest = s => { if (!s || !s.trim()) return null; const m = /^(\d{1,2}):([0-5]\d)$/.exec(s.trim()); return m ? Number(m[1]) * 60 + Number(m[2]) : NaN; };
@@ -57,8 +76,8 @@ export function buildRequest(submit, v, ds) {
     return { path: '/v1/plan/version', body };
   }
   if (submit === 'import') return { path: '/v1/plan/import-lyfta', body: { phase_id: Number(ds.phaseId), from: v.from, to: v.to, titles: Object.entries(v).filter(([k]) => /^t\d+$/.test(k)).map(([, x]) => x) } };
-  if (submit === 'phase-edit') return { path: '/v1/plan/version', body: { kind: 'phase', phase_id: Number(ds.phase), expected_version_id: version, valid_from: v.valid_from, reason: text(v.reason), data: { name: v.name, goal: text(v.goal), method: text(v.method) } } };
-  if (submit === 'phase-new') return { path: '/v1/plan/phase/start', body: { name: v.name, goal: text(v.goal), method: text(v.method), start_date: v.start_date, copy_from: v.copy_from ? Number(v.copy_from) : null } };
+  if (submit === 'phase-edit') return { path: '/v1/plan/version', body: { kind: 'phase', phase_id: Number(ds.phase), expected_version_id: version, valid_from: v.valid_from, reason: text(v.reason), data: { name: v.name, goal: text(v.goal), method: text(v.method), goal_type: v.goal_type || null, targets: targetsFrom(v) } } };
+  if (submit === 'phase-new') return { path: '/v1/plan/phase/start', body: { name: v.name, goal: text(v.goal), method: text(v.method), goal_type: v.goal_type || null, targets: targetsFrom(v), start_date: v.start_date, copy_from: v.copy_from ? Number(v.copy_from) : null } };
   if (submit === 'phase-close') return { path: '/v1/plan/phase/close', body: { phase_id: Number(ds.phase), last_day: v.last_day } };
   throw new Error('Azione sconosciuta.');
 }
