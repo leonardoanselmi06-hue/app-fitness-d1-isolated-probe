@@ -50,6 +50,7 @@ export function nutritionDays(d) {
 }
 
 // ---- Sonno ----
+const regularityKv = r => (!r ? '' : r.label ? kv('Regolarità orari', esc(r.label), `letto ${r.bed_mean} ±${r.bed_sd_min} min · risveglio ${r.wake_mean} ±${r.wake_sd_min} min`) : kv('Regolarità orari', '—', `servono almeno 7 notti (ne ho ${r.n})`));
 export function sleepSummary(d) {
   if (!d.count) return '<div class="empty">Nessuna notte nel periodo.</div>';
   let delta = 'dati insufficienti per il confronto';
@@ -57,7 +58,7 @@ export function sleepSummary(d) {
   const big = d.avg_min_7 == null ? '—' : fmtDur(d.avg_min_7);
   const shortNote = d.short_count ? `${d.short_count} ${d.short_count === 1 ? 'notte breve' : 'notti brevi'} (sotto 3 h) non ${d.short_count === 1 ? 'incide' : 'incidono'} sulle medie.` : '';
   return `<div class="bigweight"><strong>${big}</strong><small>media delle ultime ${d.n_7} notti · ${esc(delta)}</small></div>
-<div class="kvgrid">${kv('Media del periodo', fmtDur(d.avg_min_window), `${d.count - d.short_count} notti regolari`)}${kv('Notte più lunga', fmtDur(d.longest?.duration_min), esc(shortDate(d.longest?.date)))}${kv('Notte più corta', fmtDur(d.shortest?.duration_min), esc(shortDate(d.shortest?.date)))}${kv('Notti brevi', String(d.short_count), 'escluse dalle medie')}</div>${shortNote ? `<p class="subtle">${esc(shortNote)}</p>` : ''}${stagesSummary(d.stages_7)}`;
+<div class="kvgrid">${kv('Media del periodo', fmtDur(d.avg_min_window), `${d.count - d.short_count} notti regolari`)}${kv('Notte più lunga', fmtDur(d.longest?.duration_min), esc(shortDate(d.longest?.date)))}${kv('Notte più corta', fmtDur(d.shortest?.duration_min), esc(shortDate(d.shortest?.date)))}${kv('Notti brevi', String(d.short_count), 'escluse dalle medie')}${regularityKv(d.regularity)}</div>${shortNote ? `<p class="subtle">${esc(shortNote)}</p>` : ''}${stagesSummary(d.stages_7)}`;
 }
 
 const STAGE_DEF = [['deep_min', 'Profondo', 'deep'], ['rem_min', 'REM', 'rem'], ['light_min', 'Leggero', 'light'], ['awake_min', 'Sveglio', 'awake']];

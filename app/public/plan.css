@@ -21,3 +21,14 @@ dialog h3{font-size:14px;margin:16px 0 6px}.prog li{display:flex;flex-wrap:wrap;
 .adh-s>div{margin-bottom:4px}
 .adh-ex li{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;padding:3px 0}
 .adh-ex small{flex:1 0 100%;color:#8797a6;font-size:11px}
+.ci-form{display:grid;gap:10px}
+.ci-date{display:flex;gap:8px;align-items:center;font-weight:700;font-size:14px}
+.ci-row{border:1px solid #e3e9ee;border-radius:12px;padding:8px 10px;margin:0}
+.ci-row legend{font-weight:700;font-size:14px;padding:0 4px}
+.ci-row small{color:#8797a6;font-size:11px}
+.ci-scale{display:flex;gap:6px;margin:4px 0}
+.ci-scale label{flex:1}
+.ci-scale input{position:absolute;opacity:0;pointer-events:none}
+.ci-scale span{display:block;text-align:center;padding:10px 0;border:1px solid #cfd8df;border-radius:10px;font-weight:700;background:#fff}
+.ci-scale input:checked+span{background:#1f5a4b;color:#fff;border-color:#1f5a4b}
+.ci-scale input:focus-visible+span{outline:2px solid #1d4e89;outline-offset:2px}

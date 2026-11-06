@@ -2,6 +2,7 @@
 import { localDate } from '../core/time.js';
 import { nutritionView, sleepView } from '../analytics/daily-views.js';
 import { DAY_MS, addDays } from './stats.js';
+import { loadCheckins } from '../checkin/store.js';
 
 const TZ = 'Europe/Rome';
 export const localHour = iso => {
@@ -41,11 +42,12 @@ export async function loadSessionsBetween(db, subject, from, today) {
 
 export async function loadInputs(db, subject, now) {
   const today = localDate(now.toISOString(), TZ);
-  const [weights, nutrition, sleep, sessions] = await Promise.all([
+  const [weights, nutrition, sleep, sessions, checkins] = await Promise.all([
     loadWeights(db, subject, now),
     nutritionView(db, subject, { days: 29, now }),
     sleepView(db, subject, { days: 14, now }),
     loadSessions(db, subject, today),
+    loadCheckins(db, subject, addDays(today, -28), today),
   ]);
-  return { today, weights, nutrition, sleep, sessions };
+  return { today, weights, nutrition, sleep, sessions, checkins };
 }

@@ -1,6 +1,7 @@
 // Viste derivate di SOLA LETTURA: alimentazione, sonno, passi (on demand, DEC-ANA-001).
 // Regole: valori mancanti = null (mai zero); un giorno senza record è "mancante", non "0"; il giorno in corso è parziale e
 // non entra nelle medie; nessuna soglia/obiettivo inventato.
+import { sleepRegularity } from './sleep-regularity.js';
 import { getGeneration } from '../ingest/ledger.js';
 import { localDate } from '../core/time.js';
 import { clampInt, round, mean } from './views.js';
@@ -108,7 +109,7 @@ export async function sleepView(db, subject, { days, now = new Date() } = {}) {
     avg_min_7: avg7, n_7: last7.length, avg_min_prev_7: avgPrev, n_prev_7: prev7.length,
     delta_min_7: last7.length >= MIN_FOR_DELTA && prev7.length >= MIN_FOR_DELTA ? avg7 - avgPrev : null,
     longest: longest && { date: longest.date, duration_min: longest.duration_min }, shortest: shortest && { date: shortest.date, duration_min: shortest.duration_min },
-    stages_7: stageAverages(last7), nights,
+    stages_7: stageAverages(last7), regularity: sleepRegularity(regular), nights,
   };
 }
 
