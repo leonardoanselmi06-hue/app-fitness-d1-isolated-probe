@@ -4,7 +4,7 @@
 // come miglioramento. Senza RIR si usa la forma semplice e la fiducia è bassa.
 // Stallo: finestra di 28 giorni con almeno 3 esposizioni comparabili distribuite su almeno 21 giorni; altrimenti "insufficiente".
 import { classify, countsAsSet, epley, normalizeName } from './muscles.js';
-import { addDays, daysBetween, mean, round, linreg } from './stats.js';
+import { addDays, daysBetween, mean, round, linreg, fmt } from './stats.js';
 
 export const WINDOW_DAYS = 28, MIN_EXPOSURES = 3, MIN_SPAN_DAYS = 21, LONG_STALL_DAYS = 42, RIR_SHARE = 2 / 3;
 export const GLOBAL_LABEL = { progressing: 'IN PROGRESSIONE', stable: 'STABILE', stalling: 'IN STALLO', declining: 'IN CALO', mixed: 'MISTA', insufficient: 'DATI INSUFFICIENTI' };
@@ -40,11 +40,51 @@ export function seriesOf(exp) {
   return { metric: useLoad ? 'e1rm_kg' : 'reps', adjusted, points };
 }
 
+// ---- Confronto diretto sui valori reali (carico, ripetizioni, RIR, serie), senza passare solo dall'e1RM ----
+// Esempi che deve riconoscere: 8×3 a 20 kg → 8×3 a 24 kg (carico su); 8×3 → 10×3 a 20 kg (ripetizioni su);
+// 8×3 a 20 kg RIR 1 → RIR 2 (stesso lavoro con più margine = su). Ripetizioni "efficaci" = ripetizioni + RIR (solo se il RIR c'è in entrambe).
+const TOL_KG = 0.01, E1RM_BAND = 1.5, MIN_DIRECT_SPAN = 7;
+export function exposureSummary(x) {
+  const loads = x.sets.map(s => s.load).filter(l => l != null), top = loads.length ? Math.max(...loads) : null;
+  const at = top != null ? x.sets.filter(s => s.load != null && s.load >= top - TOL_KG) : x.sets, rirs = at.map(s => s.rir).filter(r => r != null);
+  return { date: x.date, load: top, sets: at.length, reps: round(mean(at.map(s => s.reps)), 1), rir: rirs.length >= at.length / 2 ? round(mean(rirs), 1) : null };
+}
+const eff = (x, useRir) => x.reps + (useRir ? x.rir : 0);
+export function compareDirect(a, b) {
+  const useRir = a.rir != null && b.rir != null, reasons = [];
+  let verdict = 'same';
+  const sameLoad = a.load == null || b.load == null ? a.load === b.load : Math.abs(a.load - b.load) < TOL_KG;
+  if (a.load == null !== (b.load == null)) return { verdict: 'unclear', reasons: ['uno dei due confronti senza carico esterno'] };
+  if (!sameLoad) {
+    const e = x => x.load * (1 + Math.min(12, eff(x, useRir)) / 30), pct = ((e(b) - e(a)) / e(a)) * 100;
+    verdict = pct >= E1RM_BAND ? 'up' : pct <= -E1RM_BAND ? 'down' : 'same';
+    reasons.push(`carico ${fmt(a.load, 1)} → ${fmt(b.load, 1)} kg`);
+    if (Math.abs(b.reps - a.reps) >= 0.5) reasons.push(`ripetizioni ${fmt(a.reps, 1)} → ${fmt(b.reps, 1)}`);
+    if (useRir && a.rir !== b.rir) reasons.push(`RIR ${fmt(a.rir, 1)} → ${fmt(b.rir, 1)}`);
+    return { verdict, reasons };
+  }
+  const d = eff(b, useRir) - eff(a, useRir);
+  if (d >= 1) verdict = 'up'; else if (d <= -1) verdict = 'down';
+  else if (b.sets > a.sets) { verdict = 'up'; reasons.push(`serie ${a.sets} → ${b.sets}`); }
+  if (Math.abs(b.reps - a.reps) >= 0.5) reasons.push(`ripetizioni ${fmt(a.reps, 1)} → ${fmt(b.reps, 1)}`);
+  if (useRir && a.rir !== b.rir) reasons.push(`RIR ${fmt(a.rir, 1)} → ${fmt(b.rir, 1)}`);
+  return { verdict, reasons };
+}
+export const summaryText = x => `${x.load != null ? `${fmt(x.load, 1)} kg` : 'corpo libero'} ${x.sets}×${fmt(x.reps, 1)}${x.rir != null ? ` RIR ${fmt(x.rir, 1)}` : ''}`;
+function directOf(exp, today) {
+  const from = addDays(today, -WINDOW_DAYS), win = exp.exposures.filter(x => x.date > from && x.date <= today).map(exposureSummary);
+  if (win.length < 2) return { available: false, reason: `${win.length} esposizion${win.length === 1 ? 'e' : 'i'} nella finestra (ne servono 2)` };
+  const first = win[0], last = win.at(-1), span = daysBetween(first.date, last.date);
+  if (span < MIN_DIRECT_SPAN) return { available: false, reason: `prima e ultima seduta a soli ${span} giorni (ne servono ${MIN_DIRECT_SPAN})` };
+  const c = compareDirect(first, last);
+  return { available: true, verdict: c.verdict, reasons: c.reasons, first, last, text: `${summaryText(first)} → ${summaryText(last)}`, trend: win.slice(-6) };
+}
+
 /** Esito per esercizio alla data `today`. */
 export function classifyExercise(exp, today) {
   const { metric, adjusted, points } = seriesOf(exp), from = addDays(today, -WINDOW_DAYS);
   const win = points.filter(p => p.date > from && p.date <= today), prior = points.filter(p => p.date <= from);
-  const base = { name: exp.name, muscle: exp.muscle, metric, rir_used: adjusted, n_window: win.length, status: 'insufficiente', reason: null, pct_week: null, change_pct: null, last_value: win.at(-1)?.value ?? null, best_value: null, best_date: null, days_since_best: null, confidence: adjusted ? 'alta' : 'bassa' };
+  const base = { direct: directOf(exp, today), name: exp.name, muscle: exp.muscle, metric, rir_used: adjusted, n_window: win.length, status: 'insufficiente', reason: null, pct_week: null, change_pct: null, last_value: win.at(-1)?.value ?? null, best_value: null, best_date: null, days_since_best: null, confidence: adjusted ? 'alta' : 'bassa' };
   const span = win.length ? daysBetween(win[0].date, win.at(-1).date) : 0;
   if (win.length < MIN_EXPOSURES) return { ...base, reason: `${win.length} esposizion${win.length === 1 ? 'e' : 'i'} negli ultimi ${WINDOW_DAYS} giorni (ne servono ${MIN_EXPOSURES})` };
   if (span < MIN_SPAN_DAYS) return { ...base, reason: `esposizioni concentrate in ${span} giorni (ne servono ${MIN_SPAN_DAYS})` };

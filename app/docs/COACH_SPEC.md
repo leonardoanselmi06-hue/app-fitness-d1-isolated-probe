@@ -78,3 +78,8 @@ per il caricamento da D1 (target versionati, tabella assente → default) e per 
 - Cache 6 h sull'impronta dei soli dati (non con tema o `force`); tetto 8 analisi per giorno UTC.
 - Configurazione solo da variabili del Worker: `AI_PROVIDER` (gemini|openai), `AI_MODEL`, `AI_API_KEY` (secret), `AI_BASE_URL` (https, solo openai). Gli errori espongono solo codici.
 - Endpoint solo proprietario: `GET /v1/ai/status`, `POST /v1/ai/advice {focus?, force?}`, `GET /v1/ai/advice?id=`, `POST /v1/ai/settings {send_notes}`, `POST /v1/ai/feedback`. Non è consulenza medica.
+
+## Progressione sui valori reali e muscoli secondari (v1)
+- Oltre all'e1RM, per ogni esercizio si confrontano la prima e l'ultima seduta della finestra di 28 giorni (almeno 2 sedute a 7 giorni di distanza) sui valori reali: carico più alto, serie al carico più alto, ripetizioni medie, RIR medio. Ripetizioni "efficaci" = ripetizioni + RIR (solo se il RIR c'è in entrambe). Progressi: 20 kg 8×3 → 24 kg 8×3; 8×3 → 10×3 a 20 kg; stesso lavoro con RIR 1 → 2; più serie allo stesso carico. Se il carico cambia, l'arbitro è l'e1RM con banda ±1,5 %. Il confronto è un'informazione in più (`direct`): lo stato `status` resta quello dell'e1RM (prudente, 3 sedute su 21 giorni).
+- Ogni esercizio ha un muscolo primario (serie dirette) e dei secondari (serie indirette, `SECONDARY` in `muscles.js`). Il volume efficace = dirette + 0,5 × indirette (ipotesi di lavoro) serve per evitare falsi "sotto il minimo"; "volume alto" usa solo le serie dirette.
+- L'obiettivo è quello scritto dall'utente nella fase (nome, obiettivo, metodo, tipo). L'app non lo sostituisce con un default: se la fase non c'è, o i target sono i default, il dossier lo dichiara e l'IA lo tratta come ipotesi. Prompt v3.
