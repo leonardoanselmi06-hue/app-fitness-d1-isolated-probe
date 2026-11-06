@@ -57,3 +57,16 @@ for (const w of pulled.workouts) for (const e of w.exercises || []) {
   }
 }
 console.log('Forma dei valori per tipo di esercizio:', JSON.stringify(groups, null, 1));
+
+// ---- Struttura dei valori duration "a due/tre parti": solo numero di parti e massimi per componente (aggregati) ----
+const comp = {};
+for (const w of pulled.workouts) for (const e of w.exercises || []) for (const s of e.sets || []) {
+  const m = typeof s.duration === 'string' && /^(\d+):(\d{2})(?::(\d{2}))?$/.exec(s.duration.trim());
+  if (!m) continue;
+  const g = `${e.exercise_type}${/plank/i.test(String(e.excercise_name)) ? '+plank' : ''}`;
+  const c = (comp[g] ??= { n: 0, parti2: 0, parti3: 0, max1: 0, max2: 0, max3: 0, prima_parte_larghezze: {} });
+  c.n++; if (m[3] === undefined) c.parti2++; else c.parti3++;
+  c.max1 = Math.max(c.max1, Number(m[1])); c.max2 = Math.max(c.max2, Number(m[2])); if (m[3] !== undefined) c.max3 = Math.max(c.max3, Number(m[3]));
+  const wd = String(m[1].length); c.prima_parte_larghezze[wd] = (c.prima_parte_larghezze[wd] || 0) + 1;
+}
+console.log('Componenti duration (massimi aggregati):', JSON.stringify(comp));
