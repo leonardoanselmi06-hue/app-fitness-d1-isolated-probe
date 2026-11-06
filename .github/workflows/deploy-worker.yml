@@ -72,6 +72,7 @@ jobs:
             "compatibility_date": "2026-10-01",
             "workers_dev": true,
             "preview_urls": false,
+            "keep_vars": true,
             "assets": { "directory": "./public", "binding": "ASSETS" },
             "d1_databases": [ { "binding": "DB", "database_name": "${DB_NAME}", "database_id": "${id}", "migrations_dir": "migrations" } ],
             "triggers": { "crons": ["17 4 * * *"] }
