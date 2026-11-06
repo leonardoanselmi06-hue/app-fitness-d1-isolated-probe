@@ -14,3 +14,10 @@ dialog#planDialog{border:0;border-radius:18px;padding:18px;width:min(92vw,440px)
 .empty.small{padding:10px;font-size:12px}
 .pimport{margin:12px 0}.pimport li{display:block}#planForm .pimport label{display:flex;gap:10px;align-items:flex-start;margin:0}#planForm .pimport input{display:inline-block;width:auto;margin:3px 0 0;flex:0 0 auto}#planForm .pimport small{margin-top:2px}
 dialog h3{font-size:14px;margin:16px 0 6px}.prog li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px}.prog small{flex:1 0 100%;color:#8797a6;font-size:11px;margin-top:2px}
+#planAdherence h3{font-size:14px;margin:16px 0 6px}
+.tag.bad{background:#fde8e6;color:#9b2c22}
+.adh,.adh-ex{list-style:none;margin:0;padding:0}
+.adh-s{padding:10px 0;border-top:1px solid #e3e9ee}
+.adh-s>div{margin-bottom:4px}
+.adh-ex li{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;padding:3px 0}
+.adh-ex small{flex:1 0 100%;color:#8797a6;font-size:11px}

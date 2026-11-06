@@ -4,6 +4,7 @@ import { localDate } from '../core/time.js';
 import { saveVersion, startPhase, closePhase, getPhase, importDays } from './store.js';
 import { suggestFromLyfta } from './lyfta-suggest.js';
 import { validDay } from './schema.js';
+import { adherenceView } from './adherence.js';
 import { planView, historyView } from './view.js';
 
 const MAX_BODY = 20 * 1024;
@@ -20,6 +21,10 @@ export async function planRoute(request, url, { db, subject, now, buildReport = 
     if (path === '/v1/plan/suggest') {
       const from = url.searchParams.get('from'), to = url.searchParams.get('to') ?? today;
       insist(validDay(from) && validDay(to) && from <= to, 422, 'invalid_range'); return await suggestFromLyfta(db, subject, { from, to });
+    }
+    if (path === '/v1/plan/adherence') {
+      const raw = url.searchParams.get('phase_id'), pid = raw == null ? null : Number.parseInt(raw, 10);
+      insist(raw == null || Number.isInteger(pid), 422, 'invalid_query'); return await adherenceView(db, subject, { phaseId: pid, today });
     }
     if (path === '/v1/plan/report') {
       const pid = Number.parseInt(url.searchParams.get('phase_id'), 10), p = Number.isInteger(pid) ? await getPhase(db, subject, pid) : null;

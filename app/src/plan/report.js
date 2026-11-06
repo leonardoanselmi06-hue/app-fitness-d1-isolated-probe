@@ -7,6 +7,7 @@ import { loadSessionsBetween } from '../coach/data.js';
 import { analyzeSessions, exerciseSeries } from '../coach/rules-training.js';
 import { MUSCLE_LABEL } from '../coach/muscles.js';
 import { listVersions, effective } from './store.js';
+import { computeAdherence, adherenceSummary } from './adherence.js';
 
 const noon = d => new Date(`${d}T12:00:00Z`); // "adesso" fittizio: il giorno dopo l'ultimo giorno, così l'ultimo giorno è completo
 const inRange = (d, a, b) => d != null && d >= a && d <= b;
@@ -85,6 +86,6 @@ export async function buildPhaseReport(db, subject, phase, lastDay) {
     body_fat: { n: fat.length, start_pct: fat.length ? round(edge(fat.map(x => x.pct), kEdge(fat.length)).first, 1) : null, end_pct: fat.length ? round(edge(fat.map(x => x.pct), kEdge(fat.length)).last, 1) : null },
     nutrition, sleep: { nights: nights.length, avg_min: nights.length ? round(mean(nights.map(n => n.duration_min)), 0) : null },
     steps: { days: st.length, avg: st.length ? round(mean(st.map(s => s.count)), 0) : null },
-    training: trainingSection(sessions, start, lastDay), scheda, scheda_changes: [...byKey].filter(([k]) => k.startsWith('rx:')).reduce((n, [, l]) => n + l.length - 1, 0), notes,
+    training: trainingSection(sessions, start, lastDay), adherence: adherenceSummary(computeAdherence({ phase, versions: vers, sessions, start, last: lastDay })), scheda, scheda_changes: [...byKey].filter(([k]) => k.startsWith('rx:')).reduce((n, [, l]) => n + l.length - 1, 0), notes,
   };
 }
