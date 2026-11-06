@@ -39,6 +39,6 @@ export const fmt = (x, d = 1) => (x == null || !Number.isFinite(x) ? '—' : Str
 export const sgn = (x, d = 1) => (x == null || !Number.isFinite(x) ? '—' : `${x > 0 ? '+' : x < 0 ? '−' : ''}${fmt(Math.abs(x), d)}`);
 
 // Forma comune di ogni consiglio del Coach.
-export const PRIORITY = Object.freeze({ nutrition_logging: 10, training_adherence: 9, weight_trend: 8, muscle_volume: 7, energy_balance: 7, progression: 6, protein: 6, sleep: 5, weighin_protocol: 4, freshness: 3 });
+export const PRIORITY = Object.freeze({ nutrition_logging: 10, training_adherence: 9, weight_trend: 8, muscle_volume: 7, energy_balance: 7, progression: 6, protein: 6, sleep: 5, recovery: 5, weighin_protocol: 4, freshness: 3 });
 export const insight = (id, title, status, summary, { evidence = [], action = null, data = null } = {}) =>
   ({ id, title, status, priority: PRIORITY[id] ?? 0, summary, evidence, action, data }); // status: ok | attenzione | info | insufficiente

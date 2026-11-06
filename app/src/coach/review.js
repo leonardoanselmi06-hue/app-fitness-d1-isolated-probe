@@ -7,18 +7,20 @@ import { weightTrendInsight, weighinInsight, freshnessInsight, sleepInsight } fr
 import { nutritionQuality, nutritionLoggingInsight, proteinInsight, energyInsight } from './rules-nutrition.js';
 import { analyzeSessions, adherenceInsight, volumeInsight, progressionInsight } from './rules-training.js';
 import { planTests } from './tests-plan.js';
+import { recoveryInsight } from './rules-recovery.js';
 
 const ACTIONABLE = new Set(['attenzione', 'insufficiente']);
 
 export function buildReview({ inputs, targets, using_defaults, version, generation }) {
-  const { today, weights, nutrition, sleep, sessions } = inputs;
+  const { today, weights, nutrition, sleep, sessions, checkins = [] } = inputs;
   const q = nutritionQuality(nutrition, today);
   const wt = weightTrendInsight(weights, today, targets);
   const analyzed = analyzeSessions(sessions);
+  const progression = progressionInsight(sessions, today);
   const insights = [
     nutritionLoggingInsight(q, today), weighinInsight(weights, today), wt.insight, proteinInsight(q, weights, today, targets),
     energyInsight(q, wt.trend, today, targets), adherenceInsight(analyzed, today, targets), volumeInsight(analyzed, today, targets),
-    progressionInsight(sessions, today), sleepInsight(sleep, targets), freshnessInsight(weights, today),
+    progression, recoveryInsight(checkins, today, { progression, sleep }), sleepInsight(sleep, targets), freshnessInsight(weights, today),
   ].filter(Boolean).sort((a, b) => b.priority - a.priority);
   const actions = insights.filter(i => ACTIONABLE.has(i.status) && i.action).slice(0, 3).map(i => ({ id: i.id, title: i.title, text: i.action }));
   const loggingBad = insights.find(i => i.id === 'nutrition_logging')?.status === 'attenzione';

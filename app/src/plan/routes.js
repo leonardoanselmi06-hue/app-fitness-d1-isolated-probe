@@ -5,6 +5,7 @@ import { saveVersion, startPhase, closePhase, getPhase, importDays } from './sto
 import { suggestFromLyfta } from './lyfta-suggest.js';
 import { validDay } from './schema.js';
 import { adherenceView } from './adherence.js';
+import { readOwnerJson } from '../core/body.js';
 import { planView, historyView } from './view.js';
 
 const MAX_BODY = 20 * 1024;
@@ -33,11 +34,7 @@ export async function planRoute(request, url, { db, subject, now, buildReport = 
     throw new AppError(404, 'not_found');
   }
   if (request.method !== 'POST') throw new AppError(405, 'method_not_allowed');
-  insist((request.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json'), 415, 'unsupported_media_type');
-  const origin = request.headers.get('origin'); insist(origin == null || origin === url.origin, 403, 'forbidden_origin');
-  const text = await request.text(); insist(text.length <= MAX_BODY, 413, 'payload_too_large');
-  let body; try { body = JSON.parse(text); } catch { throw new AppError(400, 'invalid_json'); }
-  insist(body && typeof body === 'object' && !Array.isArray(body), 422, 'invalid_body');
+  const body = await readOwnerJson(request, url, MAX_BODY);
   const ctx = { today, nowIso };
   if (path === '/v1/plan/version') return await saveVersion(db, subject, body, ctx);
   if (path === '/v1/plan/import-lyfta') {
