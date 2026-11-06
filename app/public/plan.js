@@ -11,18 +11,22 @@ const btn = (act, label, attrs = '', cls = 'sec') => `<button type="button" clas
 // Differenze tra due versioni (per lo storico): "recupero 2:30 → 3:00".
 const FIELDS = {
   rx: [['sets', 'serie', v => v], ['reps', 'ripetizioni', (_, d) => reps(d)], ['rir', 'RIR', fmtRir], ['rest_sec', 'recupero', fmtRest], ['method', 'metodo', v => v], ['note', 'nota', v => v]],
-  phase: [['name', 'nome', v => v], ['goal', 'obiettivo', v => v], ['method', 'metodologia', v => v]],
+  phase: [['name', 'nome', v => v], ['goal', 'obiettivo', v => v], ['goal_type', 'tipo di obiettivo', v => v], ['targets', 'target', v => targetsLine(v)], ['method', 'metodologia', v => v]],
   note: [['date', 'data', v => v], ['category', 'categoria', v => v], ['title', 'titolo', v => v], ['text', 'testo', v => v]],
 };
+const pr = (t, k, d = 2) => (t?.[k] ? `${String(t[k].min).replace('.', ',')}–${String(t[k].max).replace('.', ',')}` : null);
+/** Riassunto dei target personalizzati di una fase, es. "peso 0,25–0,5 %/sett. · proteine 1,8–2,4 g/kg". */
+export const targetsLine = t => (!t ? '—' : [pr(t, 'weight_pct_week') && `peso ${pr(t, 'weight_pct_week')} %/sett.`, pr(t, 'protein_g_per_kg') && `proteine ${pr(t, 'protein_g_per_kg')} g/kg`, pr(t, 'sets_per_muscle_week') && `serie ${pr(t, 'sets_per_muscle_week')}/muscolo`, t.strength_sessions_per_week != null && `${t.strength_sessions_per_week} sedute/sett.`, t.min_weekly_frequency_per_muscle != null && `frequenza ≥${t.min_weekly_frequency_per_muscle}`, t.sleep_min_hours != null && `sonno ≥${String(t.sleep_min_hours).replace('.', ',')} h`].filter(Boolean).join(' · '));
+const same = (a, b) => (a && typeof a === 'object' ? JSON.stringify(a) === JSON.stringify(b) : (a ?? null) === (b ?? null));
 export function diffLines(kind, prev, next) {
   const out = []; if (next.removed) return ['rimosso'];
   for (const [k, label, f] of FIELDS[kind] ?? []) {
     const a = k === 'reps' ? reps(prev) : prev[k], b = k === 'reps' ? reps(next) : next[k];
-    if ((a ?? null) !== (b ?? null)) out.push(`${label} ${a == null || prev.removed ? '—' : esc(k === 'reps' ? a : f(a, prev))} → ${b == null ? '—' : esc(k === 'reps' ? b : f(b, next))}`);
+    if (!same(a, b)) out.push(`${label} ${a == null || prev.removed ? '—' : esc(k === 'reps' ? a : f(a, prev))} → ${b == null ? '—' : esc(k === 'reps' ? b : f(b, next))}`);
   }
   return out;
 }
-const stateLine = (kind, d) => (d.removed ? 'rimosso' : kind === 'rx' ? esc(rxLine(d)) : kind === 'phase' ? esc([d.name, d.goal, d.method].filter(Boolean).join(' · ')) : esc([d.title, d.category].filter(Boolean).join(' · ')));
+const stateLine = (kind, d) => (d.removed ? 'rimosso' : kind === 'rx' ? esc(rxLine(d)) : kind === 'phase' ? esc([d.name, d.goal, d.goal_type, d.targets ? targetsLine(d.targets) : null, d.method].filter(Boolean).join(' · ')) : esc([d.title, d.category].filter(Boolean).join(' · ')));
 /** Storico di un'entità: versioni in ordine di data, ognuna con intervallo (valid_to è ESCLUSO: si mostra il giorno prima) e cosa è cambiato. */
 export function historyList(kind, versions) {
   if (!versions.length) return '<div class="empty">Nessuna versione.</div>';
@@ -39,7 +43,7 @@ export function planHeader(d) {
   const a = d.active;
   if (!a) return `<div class="coachplan"><strong>Nessuna fase attiva</strong><small>Una fase raggruppa scheda, metodologia e risultati di un periodo di allenamento.</small></div>${btn('phase-new', 'Inizia una fase', '', 'pri')}`;
   const exN = a.days.reduce((n, x) => n + x.exercises.length, 0);
-  return `<div class="coachplan"><strong>${esc(a.name)}</strong><small>${esc(a.goal ?? 'Obiettivo non impostato')}${a.method ? ` · ${esc(a.method)}` : ''}</small></div>
+  return `<div class="coachplan"><strong>${esc(a.name)}</strong><small>${esc(a.goal ?? 'Obiettivo non impostato')}${a.goal_type ? ` · ${esc(a.goal_type)}` : ''}${a.method ? ` · ${esc(a.method)}` : ''}</small>${a.targets ? `<small>Target: ${esc(targetsLine(a.targets))}</small>` : ''}</div>
 <div class="kvgrid"><div class="kv"><span>Dal</span><strong>${esc(shortDate(a.start_date))}</strong><small>${esc(fullDate(a.start_date))}</small></div><div class="kv"><span>Scheda</span><strong>${a.days.length} gg</strong><small>${exN} ${exN === 1 ? 'esercizio' : 'esercizi'}</small></div></div>
 <div class="prow">${btn('phase-edit', 'Modifica fase')}${btn('phase-close', 'Chiudi fase', '', 'danger')}</div>`;
 }

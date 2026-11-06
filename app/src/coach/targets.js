@@ -2,6 +2,15 @@
 // I default sono indicazioni generali (vedi docs/COACH_SPEC.md), non prescrizioni personali: ogni valore è sovrascrivibile.
 import { MUSCLES } from './muscles.js';
 
+// Tipo di obiettivo della fase → ritmo di peso e proteine indicativi (indicazioni generali, non prescrizioni: ogni valore resta sovrascrivibile dalla fase).
+export const GOAL_TYPES = Object.freeze(['massa', 'mantenimento', 'definizione']);
+export const GOAL_LABEL = Object.freeze({ massa: 'Massa', mantenimento: 'Mantenimento', definizione: 'Definizione' });
+export const GOAL_PRESETS = Object.freeze({
+  massa: Object.freeze({ weight_pct_week: Object.freeze({ min: 0.25, max: 0.5 }) }),
+  mantenimento: Object.freeze({ weight_pct_week: Object.freeze({ min: -0.1, max: 0.1 }) }),
+  definizione: Object.freeze({ weight_pct_week: Object.freeze({ min: -0.7, max: -0.3 }), protein_g_per_kg: Object.freeze({ min: 1.8, max: 2.4 }) }),
+});
+
 export const DEFAULT_TARGETS = Object.freeze({
   weight_gain_pct_week: Object.freeze({ min: 0.25, max: 0.5 }),
   protein_g_per_kg: Object.freeze({ min: 1.6, max: 2.2 }),
@@ -16,14 +25,18 @@ export const DEFAULT_TARGETS = Object.freeze({
 const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
 const num = v => typeof v === 'number' && Number.isFinite(v);
 const range = (v, def) => (isObj(v) && num(v.min) && num(v.max) && v.min > 0 && v.max >= v.min ? { min: v.min, max: v.max } : def);
+// Ritmo di peso: con segno (negativo = perdita), min <= max, entro ±3 %/sett.
+const srange = (v, def) => (isObj(v) && num(v.min) && num(v.max) && v.min >= -3 && v.max <= 3 && v.max >= v.min ? { min: v.min, max: v.max } : def);
 const pos = (v, def, max = Infinity) => (num(v) && v > 0 && v <= max ? v : def);
 
 /** Unisce i valori della riga ai default; valori non validi tornano al default (mai NaN o 0 inventati). */
 export function resolveTargets(raw) {
   const t = isObj(raw) ? raw : {};
   const D = DEFAULT_TARGETS;
+  const weight = srange(t.weight_pct_week ?? t.weight_gain_pct_week, D.weight_gain_pct_week);
   return {
-    weight_gain_pct_week: range(t.weight_gain_pct_week, D.weight_gain_pct_week),
+    goal_type: GOAL_TYPES.includes(t.goal_type) ? t.goal_type : null,
+    weight_pct_week: weight, weight_gain_pct_week: weight, // stesso valore: il nome storico resta per compatibilità
     protein_g_per_kg: range(t.protein_g_per_kg, D.protein_g_per_kg),
     strength_sessions_per_week: pos(t.strength_sessions_per_week, D.strength_sessions_per_week, 7),
     sets_per_muscle_week: range(t.sets_per_muscle_week, D.sets_per_muscle_week),
@@ -34,19 +47,34 @@ export function resolveTargets(raw) {
   };
 }
 
-/** Versione in vigore alla data `today`. Tabella assente o nessuna riga => default (using_defaults = true). */
-export async function loadTargets(db, subject, today) {
-  let row = null;
+/** Valori dei target di una fase: preset del tipo di obiettivo, poi i valori impostati nella fase. */
+export const phaseValues = meta => resolveTargets({ ...(GOAL_PRESETS[meta?.goal_type] ?? {}), ...(meta?.targets ?? {}), goal_type: meta?.goal_type });
+
+const legacyRow = async (db, subject, today) => {
   try {
-    row = await db.prepare(
-      'SELECT id, valid_from, valid_to, phase, goal, targets_json, note FROM coach_targets WHERE subject_id = ? AND valid_from <= ? AND (valid_to IS NULL OR valid_to > ?) ORDER BY valid_from DESC, id DESC LIMIT 1'
+    return await db.prepare('SELECT id, valid_from, valid_to, phase, goal, targets_json, note FROM coach_targets WHERE subject_id = ? AND valid_from <= ? AND (valid_to IS NULL OR valid_to > ?) ORDER BY valid_from DESC, id DESC LIMIT 1').bind(subject, today, today).first();
+  } catch { return null; } // migrazione non ancora applicata
+};
+const parseJson = t => { try { return JSON.parse(t); } catch { return null; } };
+
+/** Target in vigore alla data `today`. Ordine: fase attiva con tipo di obiettivo o target propri → versione storica di coach_targets → default.
+ *  Con la fase come fonte, tests_done (data dell'ultimo test) resta quello della riga storica, se esiste. */
+export async function loadTargets(db, subject, today) {
+  let ph = null;
+  try {
+    ph = await db.prepare(
+      `SELECT v.id, v.phase_id, v.valid_from, v.valid_to, v.data_json FROM plan_versions v JOIN phases p ON p.id = v.phase_id AND p.subject_id = v.subject_id
+        WHERE v.subject_id = ? AND v.kind = 'phase' AND p.status = 'active' AND v.valid_from <= ? AND (v.valid_to IS NULL OR v.valid_to > ?) ORDER BY v.valid_from DESC, v.id DESC LIMIT 1`
     ).bind(subject, today, today).first();
-  } catch { row = null; } // migrazione non ancora applicata
-  let raw = null;
-  if (row) { try { raw = JSON.parse(row.targets_json); } catch { raw = null; } }
+  } catch { ph = null; } // tabelle del Piano non ancora migrate
+  const meta = ph ? parseJson(ph.data_json) : null, row = await legacyRow(db, subject, today);
+  if (meta && (meta.goal_type || meta.targets)) {
+    const values = phaseValues(meta), legacyDone = resolveTargets(row ? parseJson(row.targets_json) : null).tests_done;
+    return { using_defaults: false, version: { id: ph.id, valid_from: ph.valid_from, valid_to: ph.valid_to, phase: meta.name ?? 'Fase', goal: meta.goal ?? GOAL_LABEL[meta.goal_type] ?? 'Obiettivo della fase', goal_type: meta.goal_type ?? null, note: null, source: 'phase', phase_id: ph.phase_id }, values: { ...values, tests_done: legacyDone } };
+  }
   return {
     using_defaults: !row,
-    version: row ? { id: row.id, valid_from: row.valid_from, valid_to: row.valid_to, phase: row.phase, goal: row.goal, note: row.note } : null,
-    values: resolveTargets(raw),
+    version: row ? { id: row.id, valid_from: row.valid_from, valid_to: row.valid_to, phase: row.phase, goal: row.goal, note: row.note, source: 'coach_targets' } : null,
+    values: resolveTargets(row ? parseJson(row.targets_json) : null),
   };
 }

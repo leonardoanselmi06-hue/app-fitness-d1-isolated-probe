@@ -7,6 +7,7 @@ import { loadSessionsBetween } from '../coach/data.js';
 import { analyzeSessions, exerciseSeries } from '../coach/rules-training.js';
 import { MUSCLE_LABEL } from '../coach/muscles.js';
 import { classifyAll } from '../coach/progression.js';
+import { phaseValues } from '../coach/targets.js';
 import { listVersions, effective } from './store.js';
 import { computeAdherence, adherenceSummary } from './adherence.js';
 
@@ -83,7 +84,8 @@ export async function buildPhaseReport(db, subject, phase, lastDay) {
   const { results: noteRows } = await db.prepare("SELECT data_json FROM plan_versions WHERE subject_id = ? AND kind = 'note' AND valid_to IS NULL").bind(subject).all();
   const notes = noteRows.map(r => JSON.parse(r.data_json)).filter(n => !n.removed && inRange(n.date, start, lastDay)).sort((a, b) => (a.date < b.date ? -1 : 1)).map(n => ({ date: n.date, category: n.category, title: n.title }));
   return {
-    report_version: 1, phase: { id: phase.id, name: meta.name ?? null, goal: meta.goal ?? null, method: meta.method ?? null },
+    report_version: 1, phase: { id: phase.id, name: meta.name ?? null, goal: meta.goal ?? null, method: meta.method ?? null, goal_type: meta.goal_type ?? null },
+    targets: meta.goal_type || meta.targets ? (({ weight_pct_week, protein_g_per_kg, sets_per_muscle_week, strength_sessions_per_week, min_weekly_frequency_per_muscle, sleep_min_hours }) => ({ weight_pct_week, protein_g_per_kg, sets_per_muscle_week, strength_sessions_per_week, min_weekly_frequency_per_muscle, sleep_min_hours }))(phaseValues(meta)) : null,
     period: { start, last_day: lastDay, days, weeks: round(days / 7, 1) }, weight: w,
     body_fat: { n: fat.length, start_pct: fat.length ? round(edge(fat.map(x => x.pct), kEdge(fat.length)).first, 1) : null, end_pct: fat.length ? round(edge(fat.map(x => x.pct), kEdge(fat.length)).last, 1) : null },
     nutrition, sleep: { nights: nights.length, avg_min: nights.length ? round(mean(nights.map(n => n.duration_min)), 0) : null },

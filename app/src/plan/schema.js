@@ -1,6 +1,7 @@
 // Validazione rigida dei dati del Piano (solo dal proprietario, ma il server non si fida del client). Campi sconosciuti = rifiutati.
 import { insist } from '../core/errors.js';
 
+import { GOAL_TYPES } from '../coach/targets.js';
 export const KINDS = ['phase', 'day', 'rx', 'note'];
 export const NOTE_CATEGORIES = ['evento', 'malattia', 'infortunio', 'viaggio', 'stress', 'sonno', 'alimentazione', 'allenamento', 'altro'];
 export const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -11,13 +12,34 @@ const only = (o, keys, code) => { insist(o && typeof o === 'object' && !Array.is
 export const validDay = s => typeof s === 'string' && DAY_RE.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
 export const slug = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
 
+// Target personalizzati della fase (tutti facoltativi): vuoti = valore predefinito del tipo di obiettivo.
+const num = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+const pair = (v, lo, hi) => { insist(v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(k => k === 'min' || k === 'max') && num(v.min, lo, hi) && num(v.max, lo, hi) && v.max >= v.min, 422, 'invalid_targets'); return { min: v.min, max: v.max }; };
+const int = (v, lo, hi) => { insist(Number.isInteger(v) && v >= lo && v <= hi, 422, 'invalid_targets'); return v; };
+export function validTargets(t) {
+  if (t == null) return null;
+  only(t, ['weight_pct_week', 'protein_g_per_kg', 'sets_per_muscle_week', 'strength_sessions_per_week', 'min_weekly_frequency_per_muscle', 'sleep_min_hours'], 'invalid_targets');
+  const out = {};
+  if (t.weight_pct_week != null) out.weight_pct_week = pair(t.weight_pct_week, -3, 3);
+  if (t.protein_g_per_kg != null) out.protein_g_per_kg = pair(t.protein_g_per_kg, 0.5, 4);
+  if (t.sets_per_muscle_week != null) out.sets_per_muscle_week = pair(t.sets_per_muscle_week, 1, 60);
+  if (t.strength_sessions_per_week != null) out.strength_sessions_per_week = int(t.strength_sessions_per_week, 1, 7);
+  if (t.min_weekly_frequency_per_muscle != null) out.min_weekly_frequency_per_muscle = int(t.min_weekly_frequency_per_muscle, 1, 7);
+  if (t.sleep_min_hours != null) { insist(num(t.sleep_min_hours, 4, 12), 422, 'invalid_targets'); out.sleep_min_hours = t.sleep_min_hours; }
+  return Object.keys(out).length ? out : null;
+}
+
 /** Ritorna i dati normalizzati. `removed:true` ammesso su day/rx/note (rimozione = nuova versione, lo storico resta). */
 export function validateData(kind, d) {
   insist(KINDS.includes(kind), 422, 'invalid_kind');
   if (d && d.removed === true) { insist(kind !== 'phase', 422, 'invalid_data'); only(d, ['removed'], 'invalid_data'); return { removed: true }; }
   if (kind === 'phase') {
-    only(d, ['name', 'goal', 'method'], 'invalid_phase');
-    return { name: str(d.name, 1, 60, 'invalid_phase'), goal: optStr(d.goal, 200, 'invalid_phase'), method: optStr(d.method, 300, 'invalid_phase') };
+    only(d, ['name', 'goal', 'method', 'goal_type', 'targets'], 'invalid_phase');
+    const out = { name: str(d.name, 1, 60, 'invalid_phase'), goal: optStr(d.goal, 200, 'invalid_phase'), method: optStr(d.method, 300, 'invalid_phase') };
+    insist(d.goal_type == null || GOAL_TYPES.includes(d.goal_type), 422, 'invalid_phase');
+    if (d.goal_type != null) out.goal_type = d.goal_type; // assenti se vuoti: le versioni precedenti restano confrontabili
+    const t = validTargets(d.targets); if (t) out.targets = t;
+    return out;
   }
   if (kind === 'day') {
     only(d, ['order', 'focus'], 'invalid_day');

@@ -69,7 +69,7 @@ export async function saveVersion(db, subject, r, { today, nowIso }) {
 
 /** Nuova fase. `copy_from`: id di una fase chiusa di cui copiare lo stato FINALE di giorni ed esercizi. */
 export async function startPhase(db, subject, r, { today, nowIso }) {
-  const meta = validateData('phase', { name: r.name, goal: r.goal, method: r.method });
+  const meta = validateData('phase', { name: r.name, goal: r.goal, method: r.method, goal_type: r.goal_type, targets: r.targets });
   insist(validDay(r.start_date) && r.start_date <= addDays(today, 60), 422, 'invalid_start_date');
   insist(!(await db.prepare("SELECT id FROM phases WHERE subject_id = ? AND status = 'active'").bind(subject).first()), 409, 'active_phase_exists');
   const last = await db.prepare('SELECT MAX(end_date) AS e FROM phases WHERE subject_id = ?').bind(subject).first();
