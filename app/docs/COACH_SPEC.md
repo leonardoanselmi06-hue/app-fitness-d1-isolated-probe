@@ -69,4 +69,4 @@ per il caricamento da D1 (target versionati, tabella assente → default) e per 
 
 ## Nota dati Lyfta (verificata su D1, 6 nov 2026)
 - `is_completed` è false per ~90% delle serie registrate (da maggio 2025) ed è true quasi solo sulle serie a tempo/cardio: il flag NON è usato né per i conteggi né per le etichette. Una serie di lavoro conta se ha ripetizioni (o ≥10 s per addome/collo).
-- Le serie a tempo recenti (es. Side Plank) arrivano con `duration = null`: non è possibile calcolare i secondi tenuti. Restano non conteggiate nel volume (addome).
+- La durata delle serie a tempo arriva come testo "m:ss" (es. "0:40", "1:00"; minuti anche oltre 59). Fino al 6 nov 2026 non veniva letta (restava null): corretto in `durationSec`; i record già salvati si aggiornano alla prossima sincronizzazione Lyfta. Le serie di plank contano per l'addome (≥10 s).

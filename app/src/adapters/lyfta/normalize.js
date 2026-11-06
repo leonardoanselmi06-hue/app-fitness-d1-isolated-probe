@@ -16,6 +16,15 @@ export function num(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+// `duration` arriva come numero/stringa numerica (secondi) oppure "m:ss" (es. "0:40", "1:00", "80:15": i minuti possono superare 59).
+// Formato verificato con il probe sul payload reale (sole categorie): sempre due parti, secondi <= 59. Altro => null, mai inventato.
+export function durationSec(v) {
+  const n = num(v);
+  if (n != null) return n;
+  const m = typeof v === 'string' ? /^(\d+):([0-5]\d)$/.exec(v.trim()) : null;
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
 export function normalizeSet(s, ex, wi, ei, si) {
   const typeId = num(s.set_type_id);
   const nativeId = num(s.id);
@@ -29,7 +38,7 @@ export function normalizeSet(s, ex, wi, ei, si) {
     external_load_kg: num(s.weight),
     reps: num(s.reps),
     rir: num(s.rir),
-    duration_sec: num(s.duration),
+    duration_sec: durationSec(s.duration),
     distance: num(s.distance),
     completed: absent(s.is_completed) ? null : (s.is_completed === true || s.is_completed === 1 || s.is_completed === '1' || s.is_completed === 'true'),
     warmup: typeId === 1,
