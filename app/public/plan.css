@@ -1,0 +1,14 @@
+/* Scheda Piano: moduli, pulsanti, storico. Mobile-first. */
+.prow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.prow.tight{margin:0;flex-wrap:nowrap}
+.pbtn{border:0;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:750;font-family:inherit;cursor:pointer}
+.pbtn.pri{background:#1d6658;color:#fff}.pbtn.sec{background:#eaf3f1;color:#26705f}.pbtn.danger{background:#fdeeee;color:#a23a3a}
+.pday{margin-bottom:16px}.pdayhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}.pdayhead strong{font-size:16px}.pdayhead small{display:block;color:#8797a6;font-size:11px}
+.prx li{gap:10px;align-items:center}.prx .rowmain small.muted{color:#aab6c0}
+.pnotes{list-style:none;margin:0;padding:0}.pnote{display:flex;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5ebef;border-radius:14px;padding:12px 14px;margin-bottom:9px}.pnote small{display:block;color:#8797a6;font-size:11px;margin:3px 0}.pnote p{margin:6px 0 0;font-size:13px;color:#43566a;white-space:pre-wrap}
+dialog#planDialog{border:0;border-radius:18px;padding:18px;width:min(92vw,440px);max-height:88vh;overflow:auto;box-shadow:0 20px 60px #0004}dialog::backdrop{background:#0008}
+#planForm h2{margin:0 0 12px;font-size:18px}#planForm label{display:block;font-size:12px;font-weight:700;color:#43566a;margin-bottom:10px}
+#planForm input,#planForm select,#planForm textarea{display:block;width:100%;box-sizing:border-box;margin-top:4px;padding:10px;border:1px solid #d5dde3;border-radius:10px;font:inherit;font-size:15px;background:#fff}
+#planForm small{display:block;font-weight:400;color:#8797a6;margin-top:3px}.pgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px}
+.perr{color:#a23a3a;font-size:13px;min-height:18px;margin:4px 0 0}
+.phist{list-style:none;margin:0;padding:0}.phist li{padding:10px 0;border-top:1px solid #f0f3f5;font-size:13px}.phist li:first-child{border-top:0}.phist strong{display:block}.phist span{display:block;color:#43566a;margin-top:2px}.phist small{display:block;color:#8797a6;margin-top:2px}
+.empty.small{padding:10px;font-size:12px}
