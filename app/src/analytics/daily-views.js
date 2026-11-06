@@ -4,6 +4,7 @@
 import { getGeneration } from '../ingest/ledger.js';
 import { localDate } from '../core/time.js';
 import { clampInt, round, mean } from './views.js';
+import { dayCompleteness } from './meal-completeness.js';
 
 const DAY_MS = 86_400_000;
 const TZ = 'Europe/Rome';
@@ -48,15 +49,17 @@ export async function nutritionView(db, subject, { days, now = new Date() } = {}
           entries: es.map(e => ({ name: e.name ?? null, description: e.description ?? null, calories: n(e).calories ?? null, protein: n(e).protein ?? null, carbohydrate: n(e).carbohydrate ?? null, fat: n(e).fat ?? null })),
         };
       });
-    return { date, partial: date === today, entries: entries.length, incomplete_entries: entries.filter(e => n(e).calories == null).length, totals, meals };
+    const noCal = entries.filter(e => n(e).calories == null).length, partial = date === today;
+    return { date, partial, entries: entries.length, incomplete_entries: noCal, completeness: dayCompleteness(entries.map(e => e.meal ?? 'Other'), { noCalorieEntries: noCal, partial }), totals, meals };
   });
 
-  const complete = by_day.filter(d => !d.partial);
+  const complete = by_day.filter(d => d.completeness.complete === true); // medie SOLO sui giorni completi (regola pasti)
   const avg = k => { const xs = complete.map(d => d.totals[k]).filter(x => x != null); return { value: round(mean(xs), k === 'calories' ? 0 : 1), n: xs.length }; };
   const logged = new Set(by_day.map(d => d.date));
   return {
     generation: await getGeneration(db), window_days: span, from, to: today, today,
     averages: { calories: avg('calories'), protein: avg('protein'), carbohydrate: avg('carbohydrate'), fat: avg('fat') },
+    complete_days: complete.length, incomplete_days: by_day.filter(d => d.completeness.complete === false).length,
     empty_days: calendarDays(from, addDays(today, -1)).filter(d => !logged.has(d)).length, // giorni passati senza alcuna voce: mancanti, non zero
     by_day,
   };

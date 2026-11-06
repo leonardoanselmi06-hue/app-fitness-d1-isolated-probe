@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { barChart, nutritionSummary, nutritionDays, sleepSummary, sleepChart, sleepList, stepsSummary, stepsChart, stepsList } from '../public/views-daily.js';
 
 const avg = (value, n) => ({ value, n });
-const nut = { empty_days: 3, averages: { calories: avg(1850, 3), protein: avg(120.5, 3), carbohydrate: avg(200, 3), fat: avg(60.2, 3) }, by_day: [
-  { date: '2026-11-06', partial: true, entries: 1, incomplete_entries: 0, totals: { calories: 200, protein: 5, carbohydrate: 30, fat: 4 }, meals: [{ meal: 'Breakfast', calories: 200, entries: [{ name: 'Caffè <b>e</b> latte', description: '1 tazza', calories: 200 }] }] },
-  { date: '2026-11-05', partial: false, entries: 2, incomplete_entries: 1, totals: { calories: 1234, protein: 22, carbohydrate: 138.1, fat: 10.9 }, meals: [{ meal: 'Lunch', calories: 1234, entries: [{ name: 'Pasta', description: '1 piatto', calories: 1234 }] }, { meal: 'Dinner', calories: null, entries: [{ name: 'Misterioso', description: null, calories: null }] }] },
+const nut = { empty_days: 3, complete_days: 3, incomplete_days: 1, averages: { calories: avg(1850, 3), protein: avg(120.5, 3), carbohydrate: avg(200, 3), fat: avg(60.2, 3) }, by_day: [
+  { date: '2026-11-06', partial: true, completeness: { complete: null, missing: [], no_calorie_entries: 0, reason: '' }, entries: 1, incomplete_entries: 0, totals: { calories: 200, protein: 5, carbohydrate: 30, fat: 4 }, meals: [{ meal: 'Breakfast', calories: 200, entries: [{ name: 'Caffè <b>e</b> latte', description: '1 tazza', calories: 200 }] }] },
+  { date: '2026-11-05', partial: false, completeness: { complete: false, missing: ['Dinner'], no_calorie_entries: 1, reason: 'manca la cena, 1 voce senza calorie' }, entries: 2, incomplete_entries: 1, totals: { calories: 1234, protein: 22, carbohydrate: 138.1, fat: 10.9 }, meals: [{ meal: 'Lunch', calories: 1234, entries: [{ name: 'Pasta', description: '1 piatto', calories: 1234 }] }, { meal: 'Dinner', calories: null, entries: [{ name: 'Misterioso', description: null, calories: null }] }] },
 ] };
 
 test('barChart: giorni mancanti = vuoti sull\'asse, nessun NaN, serie vuota gestita', () => {
@@ -20,7 +20,8 @@ test('alimentazione: medie con separatore italiano, giorni vuoti non zero, oggi 
   const s = nutritionSummary(nut);
   assert.match(s, /1\.850 kcal/); assert.match(s, /120,5 g/); assert.match(s, /media su 3 giorni/); assert.match(s, /3 giorni senza alcuna voce/);
   const days = nutritionDays(nut);
-  assert.match(days, /in corso/); assert.match(days, /1\.234 kcal/); assert.match(days, /Colazione/); assert.match(days, /Pranzo/); assert.match(days, /Cena/);
+  assert.match(days, /in corso/); assert.match(days, /<span class="tag warn">incompleto<\/span>/); assert.match(days, /manca la cena, 1 voce senza calorie/); assert.equal((days.match(/>incompleto</g) ?? []).length, 1); // oggi non è "incompleto"
+  assert.match(s, /Medie solo sui giorni completi \(pranzo, cena e almeno colazione o altro\): 3 giorni, 1 incompleto escluso/); assert.match(days, /1\.234 kcal/); assert.match(days, /Colazione/); assert.match(days, /Pranzo/); assert.match(days, /Cena/);
   assert.match(days, /1 voce senza calorie: il totale è parziale/); assert.ok(!days.includes('<b>'));
   assert.match(nutritionDays({ by_day: [] }), /Nessuna voce/);
   assert.match(nutritionSummary({ ...nut, empty_days: 0, averages: { calories: avg(null, 0), protein: avg(null, 0), carbohydrate: avg(null, 0), fat: avg(null, 0) } }), /nessun giorno completo/);

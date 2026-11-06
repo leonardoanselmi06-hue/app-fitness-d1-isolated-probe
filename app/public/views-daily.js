@@ -30,7 +30,7 @@ export function barChart(items, { yMax, tickFmt, label }) {
 export function nutritionSummary(d) {
   const a = d.averages, n = a.calories.n;
   const small = k => (a[k].n ? `media su ${a[k].n} ${a[k].n === 1 ? 'giorno' : 'giorni'}` : 'nessun giorno completo');
-  const note = [`Medie sui giorni completi con voci: la giornata in corso non è inclusa.`, d.empty_days > 0 ? `${d.empty_days} ${d.empty_days === 1 ? 'giorno' : 'giorni'} senza alcuna voce nel periodo (non conteggiati, non sono zero).` : ''].filter(Boolean).join(' ');
+  const note = [`Medie solo sui giorni completi (pranzo, cena e almeno colazione o altro): ${d.complete_days} ${d.complete_days === 1 ? 'giorno' : 'giorni'}${d.incomplete_days > 0 ? `, ${d.incomplete_days} ${d.incomplete_days === 1 ? 'incompleto escluso' : 'incompleti esclusi'}` : ''}. La giornata in corso non è inclusa.`, d.empty_days > 0 ? `${d.empty_days} ${d.empty_days === 1 ? 'giorno' : 'giorni'} senza alcuna voce nel periodo (non conteggiati, non sono zero).` : ''].filter(Boolean).join(' ');
   return `<div class="kvgrid">${kv('Calorie', a.calories.value == null ? '—' : `${fmtInt(a.calories.value)} kcal`, n ? small('calories') : 'nessun giorno completo')}${kv('Proteine', fmtG(a.protein.value), small('protein'))}${kv('Carboidrati', fmtG(a.carbohydrate.value), small('carbohydrate'))}${kv('Grassi', fmtG(a.fat.value), small('fat'))}</div><p class="subtle">${esc(note)}</p>`;
 }
 
@@ -45,7 +45,7 @@ export function nutritionDays(d) {
     const t = day.totals;
     const macro = `P ${fmtG(t.protein)} · C ${fmtG(t.carbohydrate)} · G ${fmtG(t.fat)}`;
     const warn = day.incomplete_entries > 0 ? `<p class="subtle">${day.incomplete_entries} ${day.incomplete_entries === 1 ? 'voce senza calorie' : 'voci senza calorie'}: il totale è parziale.</p>` : '';
-    return `<details class="wcard"><summary><span class="date">${esc(shortDate(day.date))}</span><span class="wmain"><strong>${t.calories == null ? '—' : `${fmtInt(t.calories)} kcal`}${day.partial ? ' <span class="tag">in corso</span>' : ''}</strong><small>${esc(macro)}</small></span></summary>${day.meals.map(mealBlock).join('')}${warn}</details>`;
+    return `<details class="wcard"><summary><span class="date">${esc(shortDate(day.date))}</span><span class="wmain"><strong>${t.calories == null ? '—' : `${fmtInt(t.calories)} kcal`}${day.partial ? ' <span class="tag">in corso</span>' : day.completeness.complete === false ? ' <span class="tag warn">incompleto</span>' : ''}</strong><small>${esc(macro)}${day.completeness.reason ? ` · ${esc(day.completeness.reason)}` : ''}</small></span></summary>${day.meals.map(mealBlock).join('')}${warn}</details>`;
   }).join('');
 }
 

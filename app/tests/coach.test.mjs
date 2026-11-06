@@ -90,19 +90,23 @@ test('pesate: poche, fuori fascia, regolari; freschezza', () => {
 });
 
 // ---------- alimentazione ----------
-test('diario: completo, incompleto per soglia 60% della mediana, pochi giorni', () => {
+test('diario: giorno completo = pranzo + cena + colazione o altro; incompleti, pochi giorni, voci senza calorie', () => {
   const ok = nutritionLoggingInsight(nutritionQuality(nutrition(() => 3000), TODAY), TODAY);
-  assert.equal(ok.status, 'ok');
-  const inc = nutritionQuality(nutrition(k => (k % 3 === 0 ? 900 : 3000)), TODAY); // 1 giorno su 3 a 30% della mediana
-  assert.equal(inc.median, 3000); assert.equal(inc.days.find(d => d.kcal === 900).state, 'incomplete');
-  assert.equal(nutritionLoggingInsight(inc, TODAY).status, 'attenzione');
+  assert.equal(ok.status, 'ok'); assert.equal(ok.data.complete, 14);
+  const incQ = nutritionQuality(nutrition(() => 3000, 150, k => (k % 2 ? ['Breakfast', 'Dinner'] : ['Lunch', 'Dinner', 'Other'])), TODAY); // dispari: manca il pranzo; pari: completo con "Altro"
+  assert.equal(incQ.days.find(d => d.date === '2026-11-05').state, 'incomplete'); assert.equal(incQ.days.find(d => d.date === '2026-11-05').reason, 'manca il pranzo');
+  assert.equal(incQ.days.find(d => d.date === '2026-11-04').state, 'complete');
+  const inc = nutritionLoggingInsight(incQ, TODAY);
+  assert.equal(inc.status, 'attenzione'); assert.equal(inc.data.complete, 7); assert.match(inc.evidence.join(' '), /5\/11 \(manca il pranzo\)/);
   const poche = nutritionLoggingInsight(nutritionQuality(nutrition(k => (k % 2 ? 3000 : undefined)), TODAY), TODAY);
-  assert.equal(poche.status, 'attenzione'); assert.match(poche.summary, /solo in 7 giorni/);
+  assert.equal(poche.status, 'attenzione'); assert.match(poche.summary, /Solo 7 giorni su 14/);
   const vuoto = nutritionLoggingInsight(nutritionQuality(nutrition(() => undefined), TODAY), TODAY);
-  assert.equal(vuoto.status, 'attenzione'); assert.equal(vuoto.data.median_kcal, null);
-  const senzaKcal = nutritionQuality(nutrition(k => (k === 1 ? null : 3000)), TODAY); // voci senza calorie: incomplete, non zero
-  assert.equal(senzaKcal.days.find(d => d.date === '2026-11-05').state, 'incomplete');
+  assert.equal(vuoto.status, 'attenzione'); assert.equal(vuoto.data.complete, 0); assert.match(vuoto.evidence.join(' '), /senza alcuna voce: 14/);
+  const senzaKcal = nutritionQuality(nutrition(k => (k === 1 ? null : 3000)), TODAY); // voce senza calorie: incompleto, non zero
+  const d1 = senzaKcal.days.find(d => d.date === '2026-11-05'); assert.equal(d1.state, 'incomplete'); assert.match(d1.reason, /1 voce senza calorie/); assert.equal(d1.kcal, null);
   assert.equal(nutritionQuality(nutrition(() => 3000), TODAY).days.length, 28);
+  const solo = nutritionQuality(nutrition(() => 3000, 150, () => ['Lunch', 'Dinner']), TODAY); // senza colazione né altro
+  assert.match(solo.days[0].reason, /manca colazione o altro/);
 });
 
 test('proteine: sotto, in linea, sopra, dati insufficienti', () => {
