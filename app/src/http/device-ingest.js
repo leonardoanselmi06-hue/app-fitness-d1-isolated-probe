@@ -57,8 +57,17 @@ export function deviceIngest({ db, raw, now = () => new Date().toISOString(), en
         records: b.steps.map(s => ({ id: `steps:${s.date}`, domain: 'activity', observed_at: null, payload: { metric: 'steps_total', local_date: s.date, count: s.count, origins: s.origins ?? [], time_semantics: 'device_local_day', dedup: 'health_connect_aggregate' } })) });
     }
     if (b.weights.length) {
-      out.weights = await ingest({ db, raw, now }, { ...base, scope_id: 'weight', request_id: crypto.randomUUID(), artifact: JSON.stringify(b.weights),
-        records: b.weights.map(w => ({ id: `weight:${w.id}`, domain: 'body', observed_at: new Date(w.time).toISOString(), payload: { metric: 'body_weight_kg', kg: w.kg, time: new Date(w.time).toISOString(), local_date: localDate(w.time), origin: w.origin ?? null } })) });
+      // Pesate escluse dal proprietario (es. cancellate nell'app Renpho ma rimaste in Health Connect): lista di istanti ISO in meta('excluded_weights').
+      let excluded = new Set();
+      try { const row = await db.prepare("SELECT value FROM meta WHERE name = 'excluded_weights'").first(); if (row?.value) excluded = new Set(JSON.parse(row.value)); } catch { /* lista assente o illeggibile: nessuna esclusione */ }
+      const keep = b.weights.filter(w => !excluded.has(new Date(w.time).toISOString()));
+      let drop_ids = [];
+      if (excluded.size) {
+        const { results } = await db.prepare("SELECT record_id, observed_at FROM current_records WHERE subject_id = 'owner' AND source_system = 'health_connect' AND source_account = ? AND scope_id = 'weight' AND deleted = 0").bind(b.device_id).all();
+        drop_ids = results.filter(r => excluded.has(r.observed_at)).map(r => r.record_id);
+      }
+      out.weights = await ingest({ db, raw, now }, { ...base, scope_id: 'weight', request_id: crypto.randomUUID(), artifact: JSON.stringify(keep), drop_ids,
+        records: keep.map(w => ({ id: `weight:${w.id}`, domain: 'body', observed_at: new Date(w.time).toISOString(), payload: { metric: 'body_weight_kg', kg: w.kg, time: new Date(w.time).toISOString(), local_date: localDate(w.time), origin: w.origin ?? null } })) });
     }
     if (b.sleep.length) {
       out.sleep = await ingest({ db, raw, now }, { ...base, source_system: 'sleep_as_android', scope_id: 'sleep', request_id: crypto.randomUUID(), artifact: JSON.stringify({ schema: 2, sleep: b.sleep }),

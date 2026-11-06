@@ -81,6 +81,11 @@ export async function ingest({ db, raw, now = () => new Date().toISOString() }, 
       if (p && !p.deleted && p.payload_hash === r.payload_hash && p.domain === r.domain) continue;
       changes.push({ ...r, revision: (p?.revision ?? 0) + 1, tombstone: 0 });
     }
+    // Esclusioni decise dal proprietario (mai dal client): tombstone esplicito di singoli record, senza toccare il resto dello scope.
+    for (const id of v.drop_ids ?? []) {
+      const p = prevMap.get(id);
+      if (p && !p.deleted) changes.push({ id, domain: p.domain, observed_at: null, payload_json: null, payload_hash: null, revision: p.revision + 1, tombstone: 1 });
+    }
     if (v.scope_complete) {
       const seen = new Set(normalized.map(r => r.id));
       for (const p of prev) {
