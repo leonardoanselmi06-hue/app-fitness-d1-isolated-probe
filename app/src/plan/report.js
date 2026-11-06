@@ -13,7 +13,7 @@ import { computeAdherence, adherenceSummary } from './adherence.js';
 const noon = d => new Date(`${d}T12:00:00Z`); // "adesso" fittizio: il giorno dopo l'ultimo giorno, così l'ultimo giorno è completo
 const inRange = (d, a, b) => d != null && d >= a && d <= b;
 
-async function weightsAndFat(db, subject, start, last) {
+export async function weightsAndFat(db, subject, start, last) {
   const { results } = await db.prepare("SELECT observed_at, payload_json FROM current_records WHERE subject_id = ? AND domain = 'body' AND deleted = 0 AND observed_at >= ? AND observed_at <= ? ORDER BY observed_at ASC")
     .bind(subject, `${addDays(start, -1)}T00:00:00Z`, `${addDays(last, 2)}T00:00:00Z`).all();
   const w = new Map(), f = new Map();

@@ -13,6 +13,7 @@ import { buildPhaseReport } from './plan/report.js';
 import { checkinRoute } from './checkin/store.js';
 import { readOwnerJson } from './core/body.js';
 import { weightsRoute } from './weights/exclusions.js';
+import { comparePeriods } from './compare/periods.js';
 
 const json = (status, body, extra = {}) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...extra },
@@ -62,6 +63,7 @@ export function createApp({ db, auth, assets, raw = null, jobs = {}, now = () =>
         if (url.pathname === '/v1/derived/weight') return json(200, await weightView(db, subject, { days: url.searchParams.get('days'), now: now() }));
         const daily = { '/v1/derived/nutrition': nutritionView, '/v1/derived/sleep': sleepView, '/v1/derived/steps': stepsView }[url.pathname];
         if (daily) return json(200, await daily(db, subject, { days: url.searchParams.get('days'), now: now() }));
+        if (url.pathname === '/v1/compare') return json(200, await comparePeriods(db, subject, { days: Number.parseInt(url.searchParams.get('days'), 10), now: now() }));
         if (url.pathname === '/v1/coach/review') return json(200, await coachReview(db, subject, { now: now() }));
         throw new AppError(404, 'not_found');
       }
