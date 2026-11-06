@@ -30,5 +30,13 @@ scheda e storico; AI integrata rimandata). Da registrare nel Decision Register. 
 peso (inizio, fine, variazione/sett.), kcal medie sui giorni completi, proteine g/kg, sonno medio, passi medi, serie/sett. per muscolo,
 sedute/sett., progressione per esercizio (e1RM), recupero medio configurato, metodologia e scheda finale. Il report non si ricalcola da solo.
 
+## Stato di implementazione (6 nov 2026, in produzione)
+- API: `GET /v1/plan`, `/v1/plan/history?entity=|phase_id=`, `/v1/plan/report?phase_id=`, `/v1/plan/suggest?from=&to=`; `POST /v1/plan/version`, `/phase/start`, `/phase/close`, `/import-lyfta`.
+- PWA: tab **Piano** (fase attiva, scheda in vigore con modifiche programmate, storico per esercizio, note, fasi passate con report e scheda finale, importazione da Lyfta).
+- **Importazione da Lyfta**: per ogni titolo di allenamento nel periodo, l'ultima seduta → serie di lavoro (riscaldamenti esclusi), range ripetizioni, RIR più frequente, recupero configurato. Il server ricalcola la proposta: il client sceglie solo i titoli. Una sola scrittura atomica; reimportare salta ciò che esiste.
+- **Report di fase** (alla chiusura, `report_version` 1): peso (media primi/ultimi k giorni, ritmo %/sett. con regressione se ≥4 giorni su ≥14), grasso corporeo, kcal e proteine (solo giorni completi), sonno (notti regolari), passi, sedute di forza e serie per muscolo/sett., recupero medio configurato, RIR medio registrato, progressione per esercizio (e1RM, ≥4 sedute), scheda finale, numero di modifiche, note del periodo. Sezioni senza dati = null con nota.
+- Vincolo di progetto: poche query D1 per richiesta (il piano Free di Cloudflare ne limita il numero): viste e import usano query aggregate e un solo batch.
+- Per rifare lo storico di una fase passata (es. la scheda 1–6 di agosto–ottobre): avvia una fase con la data di inizio di allora, importa da Lyfta con lo stesso periodo, chiudi con l'ultimo giorno. Le fasi non possono sovrapporsi.
+
 ## Fuori ambito (per ora)
 Registrazione delle serie nell'app (resta Lyfta); AI integrata; confronto automatico prescritto/eseguito (dopo il report di fase).
