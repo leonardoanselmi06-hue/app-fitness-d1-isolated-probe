@@ -78,8 +78,9 @@ export function weightSummary(d) {
 
 export function weightRecent(d) {
   const note = d.excluded_count > 0 ? `<p class="subtle">${d.excluded_count} ${d.excluded_count === 1 ? 'pesata esclusa' : 'pesate escluse'} manualmente (non mostrate).</p>` : '';
-  if (!d.recent.length) return note;
-  return `<ul class="rows">${d.recent.map(p => `<li><span>${esc(fullDate(p.local_date))}</span><strong>${fmtKg(p.kg, 2)}</strong></li>`).join('')}</ul>${note}`;
+  const excluded = (d.excluded ?? []).length ? `<h3 class="sec">Pesate escluse</h3><ul class="rows">${d.excluded.map(x => `<li><span class="rowmain"><strong>${x.kg == null ? '—' : fmtKg(x.kg, 2)}</strong><small>${esc(fullDate(String(x.time).slice(0, 10)))}${x.reason ? ` · ${esc(x.reason)}` : ''}</small></span><button type="button" class="pbtn sec" data-wact="restore" data-time="${esc(x.time)}">Ripristina</button></li>`).join('')}</ul>` : '';
+  if (!d.recent.length) return note + excluded;
+  return `<ul class="rows">${d.recent.map(p => `<li><span>${esc(fullDate(p.local_date))}</span><strong>${fmtKg(p.kg, 2)}</strong>${p.time ? `<button type="button" class="pbtn sec" data-wact="exclude" data-time="${esc(p.time)}" aria-label="Escludi la pesata del ${esc(p.local_date)}">Escludi</button>` : ''}</li>`).join('')}</ul>${note}${excluded}`;
 }
 
 /** Grasso corporeo (scritto da Renpho in Health Connect). Vuoto se non ci sono misure: mai un valore inventato. */

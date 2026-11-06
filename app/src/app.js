@@ -1,5 +1,5 @@
 // Router HTTP (API stabile /v1, DEC-API-001 CANDIDATE) — Web standard Request/Response.
-// Superficie: lettura + health; scrittura SOLO del proprietario sotto /v1/plan/* (fasi, scheda, note; DEC-PLAN-001 CANDIDATE) e /v1/checkin (recupero giornaliero). L'ingestione avviene solo da adapter server-side fidati:
+// Superficie: lettura + health; scrittura SOLO del proprietario sotto /v1/plan/* (fasi, scheda, note; DEC-PLAN-001 CANDIDATE) /v1/checkin (recupero giornaliero) e /v1/weights/exclude|restore (esclusione pesate). L'ingestione avviene solo da adapter server-side fidati:
 // nessun endpoint accetta dal client il flag scope_complete (non verificabile).
 import { AppError } from './core/errors.js';
 import { DOMAINS } from './ingest/envelope.js';
@@ -12,12 +12,13 @@ import { planRoute } from './plan/routes.js';
 import { buildPhaseReport } from './plan/report.js';
 import { checkinRoute } from './checkin/store.js';
 import { readOwnerJson } from './core/body.js';
+import { weightsRoute } from './weights/exclusions.js';
 
 const json = (status, body, extra = {}) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...extra },
 });
 
-export function createApp({ db, auth, assets, jobs = {}, now = () => new Date() }) {
+export function createApp({ db, auth, assets, raw = null, jobs = {}, now = () => new Date() }) {
   return async function fetch(request) {
     const url = new URL(request.url);
     try {
@@ -44,6 +45,7 @@ export function createApp({ db, auth, assets, jobs = {}, now = () => new Date() 
         }
         if (url.pathname.startsWith('/v1/plan/') || url.pathname === '/v1/plan') return json(200, await planRoute(request, url, { db, subject, now, buildReport: jobs.phaseReport ?? buildPhaseReport }));
         if (url.pathname === '/v1/checkin') return json(200, await checkinRoute(request, url, { db, subject, now, readBody: readOwnerJson }));
+        if (url.pathname.startsWith('/v1/weights/')) return json(200, await weightsRoute(request, url, { db, raw, subject, now, readBody: readOwnerJson }));
         if (request.method !== 'GET') throw new AppError(405, 'method_not_allowed');
         const m = url.pathname.match(/^\/v1\/(canonical|operations)\/([A-Za-z0-9_.:-]{1,120})$/);
         if (m?.[1] === 'canonical') {

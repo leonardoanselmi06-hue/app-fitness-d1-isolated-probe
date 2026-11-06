@@ -1,6 +1,7 @@
 // Viste derivate di SOLA LETTURA per la PWA: allenamenti e peso (on demand, DEC-ANA-001).
 // Nessuna inferenza: i valori mancanti restano null (mai zero) e ogni numero derivato è calcolato qui, in modo testabile.
 // Il peso corporeo di Lyfta (user_body_weight_kg) resta un campo separato e non entra mai nel carico delle serie (DEC-TRAIN-001).
+import { listExclusions } from '../weights/exclusions.js';
 import { getGeneration } from '../ingest/ledger.js';
 import { bodyFatStats } from './body-fat.js';
 
@@ -97,14 +98,15 @@ export async function weightView(db, subject, { days, now = new Date() } = {}) {
   const min = kgs.length ? points.reduce((a, b) => (b.kg < a.kg ? b : a)) : null;
   const max = kgs.length ? points.reduce((a, b) => (b.kg > a.kg ? b : a)) : null;
 
-  let excluded = 0;
-  try { const row = await db.prepare("SELECT value FROM meta WHERE name = 'excluded_weights'").first(); if (row?.value) excluded = JSON.parse(row.value).length; } catch { /* lista assente o illeggibile */ }
+  let excludedList = [];
+  try { excludedList = await listExclusions(db, subject); } catch { /* lista assente o illeggibile */ }
+  const excluded = excludedList.length;
 
   return {
     generation: await getGeneration(db), days: span, count: points.length,
     latest, avg_7d: avg7, avg_prev_7d: avgPrev7, delta_7d: delta7,
     change_in_window: points.length > 1 ? round(latest.kg - points[0].kg, 2) : null,
     min: min && { kg: min.kg, local_date: min.local_date }, max: max && { kg: max.kg, local_date: max.local_date },
-    body_fat: bodyFatStats(fat), excluded_count: excluded, daily, recent: points.slice(-10).reverse(),
+    body_fat: bodyFatStats(fat), excluded_count: excluded, excluded: excludedList, daily, recent: points.slice(-10).reverse(),
   };
 }
