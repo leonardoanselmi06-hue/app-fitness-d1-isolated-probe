@@ -95,3 +95,17 @@ test('PWA: rendering, escape, numeri non verificati, non configurata', async () 
   assert.match(aiView({ configured: false }), /AI_API_KEY/);
   assert.match(aiView({ configured: true, provider: 'gemini', model: 'm', send_notes: true, used_today: 1, daily_limit: 8, latest: null, history: [] }), /Analizza ora/);
 });
+
+import { KNOWLEDGE, SOURCES, knowledgeIds, knowledgeIndex, knowledgeMarkdown } from '../src/ai/knowledge.js';
+import { SYSTEM_PROMPT } from '../src/ai/advice.js';
+test('base di conoscenza: id unici, fonti https esistenti, livelli dichiarati, presente nel prompt', () => {
+  assert.equal(new Set(knowledgeIds()).size, KNOWLEDGE.length);
+  for (const k of KNOWLEDGE) { assert.ok(k.claims.length && k.sources.length); assert.ok(['letta', 'nota'].includes(k.level)); for (const s of k.sources) { assert.ok(SOURCES[s], s); assert.match(SOURCES[s].url, /^https:\/\//); } if (k.level === 'letta') assert.ok(k.sources.every(s => SOURCES[s].level === 'letta'), k.id); }
+  assert.match(SYSTEM_PROMPT, /\[K1\]/); assert.match(SYSTEM_PROMPT, /da confermare/); assert.match(knowledgeMarkdown(), /## Fonti/);
+});
+test('consiglio: le fonti citate sono solo id noti; la PWA le mostra come link con il livello', () => {
+  const a = validateAdvice({ ...structuredClone(GOOD), priorities: [{ ...GOOD.priorities[0], sources: ['K1', 'K99', 'K13', 5] }] });
+  assert.deepEqual(a.priorities[0].sources, ['K1', 'K13']);
+  const h = adviceBody({ id: 1, created_at: '2026-11-06T10:00:00Z', model: 'm', advice: a, unverified: 0, knowledge: knowledgeIndex(a) }, null);
+  assert.match(h, /<a href="https:\/\/www\.strongerbyscience\.com/); assert.match(h, /rel="noopener noreferrer"/); assert.match(h, /\(da confermare\)/);
+});

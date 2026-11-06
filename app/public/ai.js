@@ -4,16 +4,19 @@ import { esc, shortDate } from './views.js';
 const FB = [['seguito', 'Seguito'], ['parziale', 'In parte'], ['non_seguito', 'Non seguito'], ['non_utile', 'Non utile']];
 const CONF = { alta: 'fiducia alta', media: 'fiducia media', bassa: 'fiducia bassa' };
 
-const priority = (p, i, id, fb) => `<li class="ai-p"><div><span class="tag info">${esc(p.area)}</span> <strong>${esc(p.title)}</strong> <small>${esc(CONF[p.confidence] ?? '')}${p.check_in_days ? ` · verifica tra ${p.check_in_days} gg` : ''}</small></div>
+const safeUrl = u => (/^https:\/\//.test(u) ? esc(u) : '#');
+const refs = (p, kb) => (p.sources?.length ? `<p class="subtle ai-src">Fonti: ${p.sources.map(k => (kb?.[k]?.sources ?? []).map(s => `<a href="${safeUrl(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.ref.split(':')[0])}</a>${s.level === 'nota' ? ' (da confermare)' : ''}`).join(', ') || esc(k)).join(' · ')}</p>` : '');
+const priority = (p, i, id, fb, kb) => `<li class="ai-p"><div><span class="tag info">${esc(p.area)}</span> <strong>${esc(p.title)}</strong> <small>${esc(CONF[p.confidence] ?? '')}${p.check_in_days ? ` · verifica tra ${p.check_in_days} gg` : ''}</small></div>
 <p>${esc(p.why)}</p>
 ${p.evidence?.length ? `<ul class="ai-ev">${p.evidence.map(e => `<li>${e.verified === false ? '<span title="Numero non trovato nei dati inviati: verificalo">⚠</span> ' : ''}${esc(e.label)}: <strong>${esc(e.value)}</strong></li>`).join('')}</ul>` : ''}
 <ol class="ai-act">${p.actions.map(a => `<li>${esc(a)}</li>`).join('')}</ol>
+${refs(p, kb)}
 ${id != null ? `<div class="chips" data-ai-fb="${id}:${i}">${FB.map(([k, l]) => `<button class="chip" type="button" data-ai-status="${k}" aria-pressed="${fb?.[i] === k}">${l}</button>`).join('')}</div>` : ''}</li>`;
 
 export function adviceBody(r, feedback = null) {
   const a = r.advice; if (!a) return '';
   return `<p class="subtle">${esc(shortDate(r.created_at.slice(0, 10)))} · ${esc(r.model ?? '')}${r.cached ? ' · risultato recente riutilizzato' : ''}${r.unverified ? ` · ⚠ ${r.unverified} numeri da verificare` : ''}</p>
-<p>${esc(a.summary)}</p><ul class="ai-list">${a.priorities.map((p, i) => priority(p, i, r.id, feedback)).join('')}</ul>
+<p>${esc(a.summary)}</p><ul class="ai-list">${a.priorities.map((p, i) => priority(p, i, r.id, feedback, r.knowledge)).join('')}</ul>
 ${a.watch?.length ? `<h3>Da tenere d'occhio</h3><ul>${a.watch.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
 ${a.questions?.length ? `<h3>Cosa mi manca</h3><ul>${a.questions.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}`;
 }
