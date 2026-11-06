@@ -7,6 +7,7 @@ import { getGeneration, getOperation, listCanonical } from './ingest/ledger.js';
 import { summarize } from './analytics/summary.js';
 import { trainingView, weightView } from './analytics/views.js';
 import { nutritionView, sleepView, stepsView } from './analytics/daily-views.js';
+import { coachReview } from './coach/review.js';
 
 const json = (status, body, extra = {}) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...extra },
@@ -53,6 +54,7 @@ export function createApp({ db, auth, assets, jobs = {}, now = () => new Date() 
         if (url.pathname === '/v1/derived/weight') return json(200, await weightView(db, subject, { days: url.searchParams.get('days'), now: now() }));
         const daily = { '/v1/derived/nutrition': nutritionView, '/v1/derived/sleep': sleepView, '/v1/derived/steps': stepsView }[url.pathname];
         if (daily) return json(200, await daily(db, subject, { days: url.searchParams.get('days'), now: now() }));
+        if (url.pathname === '/v1/coach/review') return json(200, await coachReview(db, subject, { now: now() }));
         throw new AppError(404, 'not_found');
       }
       if (request.method !== 'GET' && request.method !== 'HEAD') throw new AppError(405, 'method_not_allowed');

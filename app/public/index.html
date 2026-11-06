@@ -3,7 +3,7 @@
 <body>
   <header class="shell top"><div class="brand"><span class="brandmark">AF</span><div><strong>App Fitness</strong><small>Uso personale · privata</small></div></div><div id="connection" class="connection">Verifica API…</div></header>
   <main class="shell">
-    <nav class="tabs" aria-label="Sezioni"><a href="#home" data-tab="home">Panoramica</a><a href="#allenamenti" data-tab="allenamenti">Allenamenti</a><a href="#peso" data-tab="peso">Peso</a><a href="#alimentazione" data-tab="alimentazione">Alimentazione</a><a href="#sonno" data-tab="sonno">Sonno</a><a href="#passi" data-tab="passi">Passi</a></nav>
+    <nav class="tabs" aria-label="Sezioni"><a href="#home" data-tab="home">Panoramica</a><a href="#allenamenti" data-tab="allenamenti">Allenamenti</a><a href="#peso" data-tab="peso">Peso</a><a href="#alimentazione" data-tab="alimentazione">Alimentazione</a><a href="#sonno" data-tab="sonno">Sonno</a><a href="#passi" data-tab="passi">Passi</a><a href="#coach" data-tab="coach">Coach</a></nav>
 
     <div id="view-home" class="view" data-view="home">
       <section class="intro"><div><div class="eyebrow">PANORAMICA</div><h1>Il tuo andamento,<br><em>senza numeri inventati.</em></h1><p>I dati mancanti restano segnalati come mancanti, non vengono mai considerati zero.</p></div><div class="environment">DATI REALI · USO PERSONALE<br><strong>Readiness Gate DB-RG-001: NOT PASS</strong><br><span>Sorgenti attive con deroga esplicita: Lyfta, Polar, FatSecret, collector Android.</span></div></section>
@@ -50,6 +50,14 @@
       <div class="chartbox" id="stepsChart"></div>
       <h2 class="sec">Ultimi giorni</h2>
       <div id="stepsList"></div>
+    </div>
+
+    <div id="view-coach" class="view" data-view="coach" hidden>
+      <div class="view-head"><h1>Coach</h1></div>
+      <div id="coachHeader"><div class="empty">Caricamento…</div></div>
+      <div id="coachActions"></div>
+      <div id="coachInsights"></div>
+      <div id="coachTests"></div>
     </div>
 
     <footer>App Fitness · Source of Truth: Drive / App Fitness</footer>

@@ -1,5 +1,6 @@
 import { esc, trainingList, weightSummary, weightChart, weightRecent } from '/views.js';
 import { nutritionSummary, nutritionDays, sleepSummary, sleepChart, sleepList, stepsSummary, stepsChart, stepsList } from '/views-daily.js';
+import { coachHeader, coachActions, coachInsights, coachTests } from '/coach.js';
 const $ = id => document.getElementById(id);
 const LABEL = { training: 'Allenamento', body: 'Composizione', nutrition: 'Alimentazione', activity: 'Attività', sleep: 'Sonno', cardio: 'Cardio', recovery: 'Recupero', program: 'Programma' };
 
@@ -86,15 +87,17 @@ const VIEWS = {
     render: d => [sleepSummary(d), sleepChart(d), sleepList(d)] },
   passi: { days: 30, path: '/v1/derived/steps', chips: 'stepsRange', ids: ['stepsSummary', 'stepsChart', 'stepsList'],
     render: d => [stepsSummary(d), stepsChart(d), stepsList(d)] },
+  coach: { path: '/v1/coach/review', ids: ['coachHeader', 'coachActions', 'coachInsights', 'coachTests'],
+    render: d => [coachHeader(d), coachActions(d), coachInsights(d), coachTests(d)] },
 };
 async function loadView(name) {
   const v = VIEWS[name];
   try {
-    const html = v.render(await getJson(`${v.path}?days=${v.days}`));
+    const html = v.render(await getJson(v.days ? `${v.path}?days=${v.days}` : v.path));
     v.ids.forEach((id, i) => { $(id).innerHTML = html[i]; });
   } catch (e) { v.ids.forEach((id, i) => { $(id).innerHTML = i === 0 ? `<div class="empty">${esc(e.message)}</div>` : ''; }); }
 }
-for (const [name, v] of Object.entries(VIEWS)) {
+for (const [name, v] of Object.entries(VIEWS).filter(([, x]) => x.chips)) {
   $(v.chips).addEventListener('click', ev => {
     const b = ev.target.closest('button[data-days]'); if (!b) return;
     v.days = Number(b.dataset.days);
@@ -104,7 +107,7 @@ for (const [name, v] of Object.entries(VIEWS)) {
 }
 
 // ---- Navigazione a schede (hash) ----
-const TABS = ['home', 'allenamenti', 'peso', 'alimentazione', 'sonno', 'passi'], loadedTabs = new Set();
+const TABS = ['home', 'allenamenti', 'peso', 'alimentazione', 'sonno', 'passi', 'coach'], loadedTabs = new Set();
 function route() {
   const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
   for (const v of document.querySelectorAll('.view')) v.hidden = v.dataset.view !== tab;
