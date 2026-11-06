@@ -3,12 +3,12 @@
 // Il peso corporeo di Lyfta (user_body_weight_kg) resta un campo separato e non entra mai nel carico delle serie (DEC-TRAIN-001).
 import { getGeneration } from '../ingest/ledger.js';
 
-const clampInt = (v, def, min, max) => {
+export const clampInt = (v, def, min, max) => {
   const n = Number.parseInt(v, 10);
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def;
 };
-const round = (x, d = 2) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 10 ** d) / 10 ** d);
-const mean = xs => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+export const round = (x, d = 2) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 10 ** d) / 10 ** d);
+export const mean = xs => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 const DAY_MS = 86_400_000;
 
 export const TRAINING_PAGE = Object.freeze({ def: 20, min: 1, max: 100 });

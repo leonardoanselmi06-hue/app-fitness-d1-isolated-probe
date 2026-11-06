@@ -3,7 +3,7 @@
 <body>
   <header class="shell top"><div class="brand"><span class="brandmark">AF</span><div><strong>App Fitness</strong><small>Uso personale · privata</small></div></div><div id="connection" class="connection">Verifica API…</div></header>
   <main class="shell">
-    <nav class="tabs" aria-label="Sezioni"><a href="#home" data-tab="home">Panoramica</a><a href="#allenamenti" data-tab="allenamenti">Allenamenti</a><a href="#peso" data-tab="peso">Peso</a></nav>
+    <nav class="tabs" aria-label="Sezioni"><a href="#home" data-tab="home">Panoramica</a><a href="#allenamenti" data-tab="allenamenti">Allenamenti</a><a href="#peso" data-tab="peso">Peso</a><a href="#alimentazione" data-tab="alimentazione">Alimentazione</a><a href="#sonno" data-tab="sonno">Sonno</a><a href="#passi" data-tab="passi">Passi</a></nav>
 
     <div id="view-home" class="view" data-view="home">
       <section class="intro"><div><div class="eyebrow">PANORAMICA</div><h1>Il tuo andamento,<br><em>senza numeri inventati.</em></h1><p>I dati mancanti restano segnalati come mancanti, non vengono mai considerati zero.</p></div><div class="environment">DATI REALI · USO PERSONALE<br><strong>Readiness Gate DB-RG-001: NOT PASS</strong><br><span>Sorgenti attive con deroga esplicita: Lyfta, Polar, FatSecret, collector Android.</span></div></section>
@@ -27,6 +27,29 @@
       <div class="chartbox" id="weightChart"></div>
       <h2 class="sec">Ultime pesate</h2>
       <div id="weightRecent"></div>
+    </div>
+
+    <div id="view-alimentazione" class="view" data-view="alimentazione" hidden>
+      <div class="view-head"><h1>Alimentazione</h1><div class="chips" id="nutritionRange"><button class="chip" type="button" data-days="7" aria-pressed="true">7 gg</button><button class="chip" type="button" data-days="14" aria-pressed="false">14 gg</button><button class="chip" type="button" data-days="30" aria-pressed="false">30 gg</button></div></div>
+      <div id="nutritionSummary"><div class="empty">Caricamento…</div></div>
+      <h2 class="sec">Diario</h2>
+      <div id="nutritionList"></div>
+    </div>
+
+    <div id="view-sonno" class="view" data-view="sonno" hidden>
+      <div class="view-head"><h1>Sonno</h1><div class="chips" id="sleepRange"><button class="chip" type="button" data-days="14" aria-pressed="false">14 gg</button><button class="chip" type="button" data-days="30" aria-pressed="true">30 gg</button><button class="chip" type="button" data-days="90" aria-pressed="false">90 gg</button></div></div>
+      <div id="sleepSummary"><div class="empty">Caricamento…</div></div>
+      <div class="chartbox" id="sleepChart"></div>
+      <h2 class="sec">Ultime notti</h2>
+      <div id="sleepList"></div>
+    </div>
+
+    <div id="view-passi" class="view" data-view="passi" hidden>
+      <div class="view-head"><h1>Passi</h1><div class="chips" id="stepsRange"><button class="chip" type="button" data-days="14" aria-pressed="false">14 gg</button><button class="chip" type="button" data-days="30" aria-pressed="true">30 gg</button><button class="chip" type="button" data-days="90" aria-pressed="false">90 gg</button></div></div>
+      <div id="stepsSummary"><div class="empty">Caricamento…</div></div>
+      <div class="chartbox" id="stepsChart"></div>
+      <h2 class="sec">Ultimi giorni</h2>
+      <div id="stepsList"></div>
     </div>
 
     <footer>App Fitness · Source of Truth: Drive / App Fitness</footer>

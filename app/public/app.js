@@ -1,4 +1,5 @@
 import { esc, trainingList, weightSummary, weightChart, weightRecent } from '/views.js';
+import { nutritionSummary, nutritionDays, sleepSummary, sleepChart, sleepList, stepsSummary, stepsChart, stepsList } from '/views-daily.js';
 const $ = id => document.getElementById(id);
 const LABEL = { training: 'Allenamento', body: 'Composizione', nutrition: 'Alimentazione', activity: 'Attività', sleep: 'Sonno', cardio: 'Cardio', recovery: 'Recupero', program: 'Programma' };
 
@@ -75,30 +76,40 @@ async function loadTraining(reset = false) {
 }
 $('trainMore').addEventListener('click', () => loadTraining());
 
-let weightDays = 90;
-async function loadWeight() {
+// Viste a periodo (peso, alimentazione, sonno, passi): stessa meccanica, cambiano percorso API e rendering.
+const VIEWS = {
+  peso: { days: 90, path: '/v1/derived/weight', chips: 'weightRange', ids: ['weightSummary', 'weightChart', 'weightRecent'],
+    render: d => [weightSummary(d), weightChart(d.daily), weightRecent(d)] },
+  alimentazione: { days: 7, path: '/v1/derived/nutrition', chips: 'nutritionRange', ids: ['nutritionSummary', 'nutritionList'],
+    render: d => [nutritionSummary(d), nutritionDays(d)] },
+  sonno: { days: 30, path: '/v1/derived/sleep', chips: 'sleepRange', ids: ['sleepSummary', 'sleepChart', 'sleepList'],
+    render: d => [sleepSummary(d), sleepChart(d), sleepList(d)] },
+  passi: { days: 30, path: '/v1/derived/steps', chips: 'stepsRange', ids: ['stepsSummary', 'stepsChart', 'stepsList'],
+    render: d => [stepsSummary(d), stepsChart(d), stepsList(d)] },
+};
+async function loadView(name) {
+  const v = VIEWS[name];
   try {
-    const d = await getJson(`/v1/derived/weight?days=${weightDays}`);
-    $('weightSummary').innerHTML = weightSummary(d);
-    $('weightChart').innerHTML = weightChart(d.daily);
-    $('weightRecent').innerHTML = weightRecent(d);
-  } catch (e) { $('weightSummary').innerHTML = `<div class="empty">${esc(e.message)}</div>`; $('weightChart').innerHTML = ''; $('weightRecent').innerHTML = ''; }
+    const html = v.render(await getJson(`${v.path}?days=${v.days}`));
+    v.ids.forEach((id, i) => { $(id).innerHTML = html[i]; });
+  } catch (e) { v.ids.forEach((id, i) => { $(id).innerHTML = i === 0 ? `<div class="empty">${esc(e.message)}</div>` : ''; }); }
 }
-$('weightRange').addEventListener('click', ev => {
-  const b = ev.target.closest('button[data-days]'); if (!b) return;
-  weightDays = Number(b.dataset.days);
-  for (const c of document.querySelectorAll('#weightRange .chip')) c.setAttribute('aria-pressed', String(c === b));
-  loadWeight();
-});
+for (const [name, v] of Object.entries(VIEWS)) {
+  $(v.chips).addEventListener('click', ev => {
+    const b = ev.target.closest('button[data-days]'); if (!b) return;
+    v.days = Number(b.dataset.days);
+    for (const c of $(v.chips).querySelectorAll('.chip')) c.setAttribute('aria-pressed', String(c === b));
+    loadView(name);
+  });
+}
 
 // ---- Navigazione a schede (hash) ----
-const TABS = ['home', 'allenamenti', 'peso'], loadedTabs = new Set();
+const TABS = ['home', 'allenamenti', 'peso', 'alimentazione', 'sonno', 'passi'], loadedTabs = new Set();
 function route() {
   const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
   for (const v of document.querySelectorAll('.view')) v.hidden = v.dataset.view !== tab;
   for (const a of document.querySelectorAll('.tabs a')) { if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
-  if (tab === 'allenamenti' && !loadedTabs.has(tab)) { loadedTabs.add(tab); loadTraining(true); }
-  if (tab === 'peso' && !loadedTabs.has(tab)) { loadedTabs.add(tab); loadWeight(); }
+  if (tab !== 'home' && !loadedTabs.has(tab)) { loadedTabs.add(tab); if (tab === 'allenamenti') loadTraining(true); else loadView(tab); }
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
