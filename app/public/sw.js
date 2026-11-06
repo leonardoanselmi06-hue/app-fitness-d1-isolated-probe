@@ -1,5 +1,5 @@
 // Service worker: mette in cache SOLO la shell statica. Le API (/v1/*) non vengono mai memorizzate (dati sanitari).
-const CACHE = 'app-fitness-shell-v4';
+const CACHE = 'app-fitness-shell-v5';
 const SHELL = ['/', '/styles.css', '/views.css', '/app.js', '/views.js', '/views-daily.js', '/coach.js', '/manifest.webmanifest', '/icon-192.png'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));

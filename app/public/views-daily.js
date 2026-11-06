@@ -57,7 +57,19 @@ export function sleepSummary(d) {
   const big = d.avg_min_7 == null ? '—' : fmtDur(d.avg_min_7);
   const shortNote = d.short_count ? `${d.short_count} ${d.short_count === 1 ? 'notte breve' : 'notti brevi'} (sotto 3 h) non ${d.short_count === 1 ? 'incide' : 'incidono'} sulle medie.` : '';
   return `<div class="bigweight"><strong>${big}</strong><small>media delle ultime ${d.n_7} notti · ${esc(delta)}</small></div>
-<div class="kvgrid">${kv('Media del periodo', fmtDur(d.avg_min_window), `${d.count - d.short_count} notti regolari`)}${kv('Notte più lunga', fmtDur(d.longest?.duration_min), esc(shortDate(d.longest?.date)))}${kv('Notte più corta', fmtDur(d.shortest?.duration_min), esc(shortDate(d.shortest?.date)))}${kv('Notti brevi', String(d.short_count), 'escluse dalle medie')}</div>${shortNote ? `<p class="subtle">${esc(shortNote)}</p>` : ''}`;
+<div class="kvgrid">${kv('Media del periodo', fmtDur(d.avg_min_window), `${d.count - d.short_count} notti regolari`)}${kv('Notte più lunga', fmtDur(d.longest?.duration_min), esc(shortDate(d.longest?.date)))}${kv('Notte più corta', fmtDur(d.shortest?.duration_min), esc(shortDate(d.shortest?.date)))}${kv('Notti brevi', String(d.short_count), 'escluse dalle medie')}</div>${shortNote ? `<p class="subtle">${esc(shortNote)}</p>` : ''}${stagesSummary(d.stages_7)}`;
+}
+
+const STAGE_DEF = [['deep_min', 'Profondo', 'deep'], ['rem_min', 'REM', 'rem'], ['light_min', 'Leggero', 'light'], ['awake_min', 'Sveglio', 'awake']];
+function stagesSummary(s) {
+  if (!s) return '<p class="subtle">Fasi del sonno non disponibili: servono l\'accesso Health Connect al sonno e un\'app che le registri.</p>';
+  return `<h2 class="sec">Fasi (media ${s.n_staged} ${s.n_staged === 1 ? 'notte' : 'notti'} con fasi)</h2><div class="kvgrid">${STAGE_DEF.map(([k, label]) => kv(label, fmtDur(s[k]))).join('')}</div>`;
+}
+function stageBar(st) {
+  const tot = STAGE_DEF.reduce((a, [k]) => a + (st[k] ?? 0), 0);
+  if (!tot) return '';
+  const segs = STAGE_DEF.filter(([k]) => st[k] > 0).map(([k, , cls]) => `<span class="${cls}" style="width:${(st[k] / tot * 100).toFixed(1)}%"></span>`).join('');
+  return `<span class="stagebar" role="img" aria-label="${esc(STAGE_DEF.map(([k, l]) => `${l} ${fmtDur(st[k])}`).join(', '))}">${segs}</span>`;
 }
 
 export function sleepChart(d) {
@@ -70,7 +82,7 @@ export function sleepChart(d) {
 export function sleepList(d) {
   const rows = [...d.nights].reverse().slice(0, 14).map(n => {
     const tags = [n.short ? '<span class="tag warn">breve</span>' : '', n.quality_pct != null ? `<span class="tag">qualità ${n.quality_pct}%</span>` : '', n.cycles != null ? `<span class="tag">${n.cycles} cicli</span>` : ''].join('');
-    return `<li><span class="rowmain"><strong>${esc(shortDate(n.date))}</strong><small>${esc(n.start_local ?? '—')} → ${esc(n.end_local ?? '—')}</small></span><span class="rowtags">${tags}</span><strong>${fmtDur(n.duration_min)}</strong></li>`;
+    return `<li><span class="rowmain"><strong>${esc(shortDate(n.date))}</strong><small>${esc(n.start_local ?? '—')} → ${esc(n.end_local ?? '—')}</small>${n.stages ? stageBar(n.stages) : ''}</span><span class="rowtags">${tags}</span><strong>${fmtDur(n.duration_min)}</strong></li>`;
   }).join('');
   return rows ? `<ul class="rows sleeprows">${rows}</ul>` : '';
 }

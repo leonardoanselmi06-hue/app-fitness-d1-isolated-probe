@@ -79,3 +79,7 @@
 .evidence ul,.evidence ol{margin:0;padding-left:18px;font-size:13px;color:#43566a;line-height:1.55}
 .evidence p{margin:0;font-size:13px;color:#43566a;line-height:1.55}
 .disclaimer{font-size:11px;color:#94a2ad;line-height:1.5;margin:18px 0 8px}
+
+.stagebar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:6px;background:#eef1f4;width:96px}
+.stagebar .deep{background:#1d4e89}.stagebar .rem{background:#6f58c9}.stagebar .light{background:#8fb8d9}.stagebar .awake{background:#e0a458}
+.rowmain{min-width:0}

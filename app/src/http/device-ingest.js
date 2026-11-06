@@ -1,10 +1,12 @@
 // Ingest dal collector Android (Health Connect): POST /v1/ingest/device, solo con service token Cloudflare Access (principal 'device').
 // Il server NON si fida del client: valida tipi e intervalli, ricava soggetto/ora/request_id da sé, non accetta MAI scope_complete
 // (una finestra letta dal telefono non è verificabile come completa => nessuna cancellazione). Il corpo ricevuto è l'artefatto RAW (Drive).
-// Corpo: { device_id, steps:[{date:'AAAA-MM-GG', count, origins:[pkg]}], weights:[{id, time, kg, origin}], sleep:[{id, start_ms, end_ms, ...}] }
+// Corpo: { device_id, steps:[{date:'AAAA-MM-GG', count, origins:[pkg]}], weights:[{id, time, kg, origin}], sleep:[{id, start_ms, end_ms, ...}],
+//          body_fat:[{id, time, pct, origin}], sleep_stages:[{id, start_ms, end_ms, origin, segments:[[tipo, offset_min, durata_min]]}] }
 import { AppError, insist } from '../core/errors.js';
 import { ingest } from '../ingest/ledger.js';
 import { validIsoInstant, localDate } from '../core/time.js';
+import { validSegments, summarizeStages } from '../analytics/sleep-stages.js';
 
 const MAX_BYTES = 1024 * 1024, MAX_ITEMS = 400;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -19,8 +21,9 @@ export function parseDeviceBody(text, nowMs) {
   insist(b && typeof b === 'object' && !Array.isArray(b), 422, 'invalid_body');
   insist(!('scope_complete' in b) && !('subject' in b), 422, 'forbidden_field'); // il client non decide completezza né soggetto
   insist(typeof b.device_id === 'string' && ID.test(b.device_id), 422, 'invalid_device');
-  const steps = b.steps ?? [], weights = b.weights ?? [], sleep = b.sleep ?? [];
-  insist(Array.isArray(steps) && Array.isArray(weights) && Array.isArray(sleep) && steps.length + weights.length + sleep.length > 0 && steps.length <= MAX_ITEMS && weights.length <= MAX_ITEMS && sleep.length <= MAX_ITEMS, 422, 'invalid_items');
+  const steps = b.steps ?? [], weights = b.weights ?? [], sleep = b.sleep ?? [], bodyFat = b.body_fat ?? [], stages = b.sleep_stages ?? [];
+  const lists = [steps, weights, sleep, bodyFat, stages];
+  insist(lists.every(Array.isArray) && lists.reduce((a, l) => a + l.length, 0) > 0 && lists.every(l => l.length <= MAX_ITEMS), 422, 'invalid_items');
   const maxDay = new Date(nowMs + 36 * 3600 * 1000).toISOString().slice(0, 10), seenS = new Set(), seenW = new Set();
   for (const s of steps) {
     insist(s && typeof s.date === 'string' && DAY.test(s.date) && s.date <= maxDay && s.date >= '2015-01-01' && !seenS.has(s.date), 422, 'invalid_steps'); seenS.add(s.date);
@@ -41,7 +44,20 @@ export function parseDeviceBody(text, nowMs) {
     insist(z.tz == null || (typeof z.tz === 'string' && /^[A-Za-z0-9_/+:.-]{1,64}$/.test(z.tz)), 422, 'invalid_sleep');
     for (const k of ['rating', 'quality', 'snore', 'cycles', 'len_adjust', 'noise_level', 'length_raw']) insist(numOrNull(z[k]), 422, 'invalid_sleep');
   }
-  return { device_id: b.device_id, steps, weights, sleep };
+  const seenF = new Set(), seenG = new Set(), maxMs = nowMs + 36 * 3600 * 1000;
+  for (const f of bodyFat) {
+    insist(f && typeof f.id === 'string' && ID.test(f.id) && !seenF.has(f.id), 422, 'invalid_body_fat'); seenF.add(f.id);
+    insist(validIsoInstant(f.time) && Date.parse(f.time) <= maxMs, 422, 'invalid_body_fat');
+    insist(num(f.pct) != null && f.pct >= 2 && f.pct <= 70, 422, 'invalid_body_fat'); // percentuale plausibile; fuori intervallo = rifiutato, mai corretto
+    insist(f.origin == null || (typeof f.origin === 'string' && PKG.test(f.origin)), 422, 'invalid_body_fat');
+  }
+  for (const g of stages) {
+    insist(g && typeof g.id === 'string' && ID.test(g.id) && !seenG.has(g.id), 422, 'invalid_stages'); seenG.add(g.id);
+    insist(Number.isInteger(g.start_ms) && g.start_ms > 1.4e12 && g.start_ms <= maxMs && Number.isInteger(g.end_ms) && g.end_ms >= g.start_ms && g.end_ms - g.start_ms <= 36 * 3600 * 1000, 422, 'invalid_stages');
+    insist(g.origin == null || (typeof g.origin === 'string' && PKG.test(g.origin)), 422, 'invalid_stages');
+    insist(validSegments(g.segments) && g.segments.every(([, off, dur]) => off + dur <= (g.end_ms - g.start_ms) / 60000 + 2), 422, 'invalid_stages');
+  }
+  return { device_id: b.device_id, steps, weights, sleep, body_fat: bodyFat, sleep_stages: stages };
 }
 
 export function deviceIngest({ db, raw, now = () => new Date().toISOString(), enabled = false }) {
@@ -76,6 +92,16 @@ export function deviceIngest({ db, raw, now = () => new Date().toISOString(), en
           duration_min: Math.round((z.end_ms - z.start_ms) / 60000), short: z.end_ms - z.start_ms < SHORT_NIGHT_MS, latest_end_at: z.latest_end_ms ? new Date(z.latest_end_ms).toISOString() : null,
           rating: z.rating ?? null, quality: z.quality ?? null, snore: z.snore ?? null, cycles: z.cycles ?? null, len_adjust_raw: z.len_adjust ?? null, noise_level: z.noise_level ?? null, length_raw: z.length_raw ?? null,
           identity: 'provider_startTime', time_semantics: 'epoch_ms' } })) });
+    }
+    if (b.body_fat.length) {
+      out.body_fat = await ingest({ db, raw, now }, { ...base, scope_id: 'body_fat', request_id: crypto.randomUUID(), artifact: JSON.stringify(b.body_fat),
+        records: b.body_fat.map(f => ({ id: `bodyfat:${f.id}`, domain: 'body', observed_at: new Date(f.time).toISOString(), payload: { metric: 'body_fat_pct', pct: f.pct, time: new Date(f.time).toISOString(), local_date: localDate(f.time), origin: f.origin ?? null } })) });
+    }
+    if (b.sleep_stages.length) {
+      out.sleep_stages = await ingest({ db, raw, now }, { ...base, scope_id: 'sleep_stages', request_id: crypto.randomUUID(), artifact: JSON.stringify(b.sleep_stages),
+        records: b.sleep_stages.map(g => ({ id: `sleepstages:${g.id}`, domain: 'sleep', observed_at: new Date(g.start_ms).toISOString(), payload: {
+          metric: 'sleep_stages', start_at: new Date(g.start_ms).toISOString(), end_at: new Date(g.end_ms).toISOString(), origin: g.origin ?? null,
+          ...summarizeStages(g.segments), segments: g.segments, time_semantics: 'epoch_ms_offsets_min' } })) });
     }
     return { ok: true, ...out };
   };
