@@ -43,3 +43,19 @@
 .more{display:block;margin:14px auto;background:#eaf3f1;color:#26705f}
 .view h2.sec{font-size:15px;margin:22px 0 10px}
 @media(min-width:700px){.kvgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+/* Alimentazione, Sonno, Passi */
+.chartbox .bar{fill:#1d6658}
+.chartbox .bar.partial{fill:#9cc7bb}
+.chartbox .bar.short{fill:#d9a441}
+.meal{padding:10px 0;border-top:1px solid #f0f3f5}
+.mealHead{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
+.mealHead span{color:#277665;font-weight:750}
+.entries{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.entries li{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.eName strong{display:block;font-size:13px;font-weight:600}
+.eName small{display:block;font-size:11px;color:#94a2ad;margin-top:2px}
+.eKcal{font-size:12px;color:#526676;white-space:nowrap}
+.sleeprows li{align-items:center;gap:10px}
+.rowmain strong{display:block;font-size:13px}
+.rowmain small{display:block;font-size:11px;color:#94a2ad;margin-top:2px}
+.rowtags{display:flex;gap:4px;flex-wrap:wrap;flex:1;justify-content:flex-end}
