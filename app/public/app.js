@@ -3,6 +3,7 @@ import { nutritionSummary, nutritionDays, sleepSummary, sleepChart, sleepList, s
 import { coachHeader, coachActions, coachInsights, coachTests } from '/coach.js';
 import { planHeader, planScheda, planNotes, planPhases } from '/plan.js';
 import { setPlan, bindPlan } from '/plan-ui.js';
+import { adherenceView } from '/plan-adherence.js';
 const $ = id => document.getElementById(id);
 const LABEL = { training: 'Allenamento', body: 'Composizione', nutrition: 'Alimentazione', activity: 'Attività', sleep: 'Sonno', cardio: 'Cardio', recovery: 'Recupero', program: 'Programma' };
 
@@ -91,14 +92,18 @@ const VIEWS = {
     render: d => [stepsSummary(d), stepsChart(d), stepsList(d)] },
   coach: { path: '/v1/coach/review', ids: ['coachHeader', 'coachActions', 'coachInsights', 'coachTests'],
     render: d => [coachHeader(d), coachActions(d), coachInsights(d), coachTests(d)] },
-  piano: { path: '/v1/plan', ids: ['planHeader', 'planScheda', 'planNotes', 'planPhases'],
-    render: d => { setPlan(d); return [planHeader(d), planScheda(d), planNotes(d), planPhases(d)]; } },
+  piano: { path: '/v1/plan', ids: ['planHeader', 'planScheda', 'planAdherence', 'planNotes', 'planPhases'],
+    render: d => { setPlan(d); return [planHeader(d), planScheda(d), '', planNotes(d), planPhases(d)]; } },
 };
+async function loadAdherence() {
+  try { const d = await getJson('/v1/plan/adherence'); $('planAdherence').innerHTML = adherenceView(d.adherence); } catch { $('planAdherence').innerHTML = ''; } // sezione accessoria: se manca, il resto del Piano funziona
+}
 async function loadView(name) {
   const v = VIEWS[name];
   try {
     const html = v.render(await getJson(v.days ? `${v.path}?days=${v.days}` : v.path));
     v.ids.forEach((id, i) => { $(id).innerHTML = html[i]; });
+    if (name === 'piano') loadAdherence();
   } catch (e) { v.ids.forEach((id, i) => { $(id).innerHTML = i === 0 ? `<div class="empty">${esc(e.message)}</div>` : ''; }); }
 }
 for (const [name, v] of Object.entries(VIEWS).filter(([, x]) => x.chips)) {
