@@ -31,3 +31,29 @@ console.log('Campi serie    :', JSON.stringify(S));
 console.log('Distribuzione set_type_id:', JSON.stringify(setTypes));
 const named = pulled.workouts.flatMap(w => w.exercises || []).filter(e => e.excercise_name != null && e.excercise_name !== '').length;
 console.log('Esercizi con `excercise_name` valorizzato:', named, '/', ex);
+
+// ---- Forma dei valori `duration` per tipo di esercizio (solo CATEGORIE, mai valori) ----
+const shape = v => {
+  if (v === null) return 'json-null';
+  if (v === undefined) return 'assente';
+  if (typeof v === 'number') return v === 0 ? 'numero-0' : 'numero>0';
+  if (typeof v !== 'string') return typeof v;
+  const s = v.trim();
+  if (s === '') return 'stringa-vuota';
+  if (s.toLowerCase() === 'null') return 'stringa-"null"';
+  if (/^0+(\.0+)?$/.test(s)) return 'stringa-0';
+  if (/^\d+(\.\d+)?$/.test(s)) return `cifre(${s.length})`;
+  if (/^\d+:\d{2}(:\d{2})?$/.test(s)) return 'formato-hh:mm';
+  return 'altro-formato';
+};
+const groups = {};
+for (const w of pulled.workouts) for (const e of w.exercises || []) {
+  const g = `${e.exercise_type}${/plank/i.test(String(e.excercise_name)) ? '+plank' : ''}`;
+  groups[g] ??= { sets: 0, duration: {}, reps: {}, weight: {}, distance: {}, is_completed: {} };
+  for (const s of e.sets || []) {
+    const G = groups[g]; G.sets++;
+    for (const k of ['duration', 'reps', 'weight', 'distance']) { const sh = shape(s[k]); G[k][sh] = (G[k][sh] || 0) + 1; }
+    const c = String(s.is_completed); G.is_completed[c] = (G.is_completed[c] || 0) + 1;
+  }
+}
+console.log('Forma dei valori per tipo di esercizio:', JSON.stringify(groups, null, 1));
