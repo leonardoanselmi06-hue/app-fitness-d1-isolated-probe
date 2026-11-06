@@ -4,8 +4,9 @@ import { AppError, insist } from '../core/errors.js';
 import { sha256Hex, stableStringify } from '../core/hash.js';
 import { buildDossier } from './dossier.js';
 import { callModel, extractJson, aiConfig } from './provider.js';
+import { knowledgeText, knowledgeIds, knowledgeIndex } from './knowledge.js';
 
-export const PROMPT_VERSION = 'v3';
+export const PROMPT_VERSION = 'v4';
 export const DAILY_LIMIT = 8, CACHE_HOURS = 6;
 export const AREAS = ['allenamento', 'alimentazione', 'peso', 'sonno', 'recupero', 'scheda', 'dati', 'altro'];
 export const CONFIDENCE = ['alta', 'media', 'bassa'];
@@ -26,14 +27,12 @@ REGOLE
 10. PRUDENZA SULLE QUANTITÀ: non proporre mai tutto insieme. Per ogni muscolo non aumentare più di 2–3 serie dirette a settimana per volta e non toccare più di 3 muscoli nello stesso ciclo; scegli i più importanti per l'obiettivo. Ogni numero deve avere unità e provenienza (dal dossier o da una linea guida citata come tale). Non scrivere valori senza senso come "0,5x a settimana". Se un muscolo mostra 0 serie, controlla se i dati lo spiegano (esercizio non classificato, dato mancante) prima di consigliare di aggiungerne.
 11. MUSCOLI: ogni esercizio del piano ha un muscolo primario e dei secondari. Il volume per muscolo va letto come serie dirette + serie indirette (i secondari contano meno, circa metà). Prima di dire che un muscolo è sotto-stimolato considera gli esercizi che lo allenano come secondario (per esempio i bicipiti nei tirate e i tricipiti nelle spinte).
 12. PROGRESSIONE: valuta i valori reali (real_values: carico, serie, ripetizioni, RIR) oltre all'e1RM. Sono progressi: carico più alto a parità di ripetizioni, più ripetizioni allo stesso carico, stesso lavoro con RIR più alto (più margine), più serie allo stesso carico. Citali con i numeri.
-Linee guida generali per obiettivo (i dati dell'utente prevalgono su queste):
-- Massa: circa 10–20 serie dirette per muscolo a settimana con frequenza almeno 2; serie di lavoro a 0–3 RIR; +0,25–0,5% di peso a settimana; proteine circa 1,6–2,2 g/kg; doppia progressione.
-- Forza: priorità ai fondamentali (squat, panca, stacco, military press o equivalenti) con serie pesanti a 3–6 ripetizioni (1–5 per i top set), RIR 1–3 sui top set, recuperi 3–5 minuti; frequenza 2–3 volte a settimana per alzata; volume per muscolo moderato (circa 6–12 serie dirette a settimana) con accessori a 6–12 ripetizioni che sostengono le alzate; progressione sul carico o sull'e1RM dei fondamentali (aumenti piccoli, ad esempio 2,5 kg, quando le ripetizioni sono al tetto del range); peso stabile o in leggero aumento; sonno e recupero decisivi; scarico dopo stallo prolungato accompagnato da stanchezza o dopo 4–8 settimane pesanti.
-- Mantenimento: volume ridotto (circa un terzo) ma carichi mantenuti. Definizione: carichi mantenuti, volume stabile o ridotto, deficit moderato, proteine circa 1,8–2,4 g/kg.
+BASE DI CONOSCENZA (sintesi di fonti riconosciute; sono indicazioni generali, i dati dell'utente prevalgono). Quando una priorità si appoggia a una voce, cita l'id in \"sources\" (solo id presenti qui, per esempio [\"K1\"]); non citare altro. Le voci "da confermare" usale con più cautela e dillo. Cose che non sono in questa base (per esempio come impostare un programma di forza sui fondamentali) sono prassi comune e vanno presentate come tali, non come evidenza.
+${knowledgeText()}
 
 FORMATO: rispondi SOLO con un oggetto JSON, senza testo fuori e senza markdown:
 {"summary": "2-4 frasi sul quadro generale",
- "priorities": [{"area": "allenamento|alimentazione|peso|sonno|recupero|scheda|dati|altro", "title": "breve", "why": "perché, con i dati", "evidence": [{"label": "cosa", "value": "valore copiato dal dossier"}], "actions": ["azione specifica e misurabile"], "confidence": "alta|media|bassa", "check_in_days": 14}],
+ "priorities": [{"area": "allenamento|alimentazione|peso|sonno|recupero|scheda|dati|altro", "title": "breve", "why": "perché, con i dati", "evidence": [{"label": "cosa", "value": "valore copiato dal dossier"}], "actions": ["azione specifica e misurabile"], "confidence": "alta|media|bassa", "check_in_days": 14, "sources": ["K1"]}],
  "watch": ["cose da tenere d'occhio"],
  "questions": ["dati o informazioni che mancano e cambierebbero il consiglio"]}`;
 
@@ -47,8 +46,9 @@ export function validateAdvice(o) {
   for (const p of o.priorities) {
     if (!p || !s(p.title, 2, 120) || !s(p.why, 2, 900) || !AREAS.includes(p.area) || !CONFIDENCE.includes(p.confidence) || !arr(p.actions, 6) || p.actions.length < 1 || !p.actions.every(a => s(a, 2, 400))) return null;
     const ev = (arr(p.evidence ?? [], 8) ? p.evidence ?? [] : []).filter(e => e && s(e.label, 1, 100) && s(String(e.value ?? ''), 1, 160)).map(e => ({ label: e.label.trim(), value: String(e.value).trim() }));
+    const known = new Set(knowledgeIds()), srcs = Array.isArray(p.sources) ? [...new Set(p.sources.filter(x => typeof x === 'string' && known.has(x)))].slice(0, 4) : [];
     const days = Number.isInteger(p.check_in_days) && p.check_in_days >= 1 && p.check_in_days <= 120 ? p.check_in_days : null;
-    priorities.push({ area: p.area, title: p.title.trim(), why: p.why.trim(), evidence: ev, actions: p.actions.map(a => a.trim()), confidence: p.confidence, check_in_days: days });
+    priorities.push({ area: p.area, title: p.title.trim(), why: p.why.trim(), evidence: ev, actions: p.actions.map(a => a.trim()), confidence: p.confidence, check_in_days: days, sources: srcs });
   }
   const list = (v, n, len) => (arr(v ?? [], n) ? (v ?? []).filter(x => s(x, 2, len)).map(x => x.trim()) : []);
   return { summary: o.summary.trim(), priorities, watch: list(o.watch, 6, 300), questions: list(o.questions, 5, 250) };
@@ -74,7 +74,7 @@ export function verifyEvidence(advice, dossier) {
 }
 
 // ---- archivio ----
-const parseRow = r => ({ id: r.id, created_at: r.created_at, trigger: r.trigger, focus: r.focus, model: r.model, provider: r.provider, unverified: r.unverified, advice: JSON.parse(r.response_json) });
+const parseRow = r => ({ id: r.id, created_at: r.created_at, trigger: r.trigger, focus: r.focus, model: r.model, provider: r.provider, unverified: r.unverified, advice: JSON.parse(r.response_json), knowledge: knowledgeIndex(JSON.parse(r.response_json)) });
 
 async function previousAdvice(db, subject) {
   const { results } = await db.prepare('SELECT id, created_at, response_json FROM ai_advice WHERE subject_id = ? ORDER BY id DESC LIMIT 3').bind(subject).all();
@@ -121,7 +121,7 @@ export async function generateAdvice(db, subject, { cfg, fetchFn, now, body }) {
   await db.prepare('INSERT INTO ai_advice (subject_id, created_at, trigger, focus, provider, model, prompt_version, dossier_hash, dossier_json, response_json, unverified, tokens_in, tokens_out) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
     .bind(subject, nowIso, 'manual', focus, cfg.provider, cfg.model, PROMPT_VERSION, hash, JSON.stringify(dossier), JSON.stringify(advice), unverified, res.tokens_in, res.tokens_out).run();
   const saved = await db.prepare('SELECT id FROM ai_advice WHERE subject_id = ? AND created_at = ? ORDER BY id DESC LIMIT 1').bind(subject, nowIso).first();
-  return { cached: false, id: saved?.id ?? null, created_at: nowIso, trigger: 'manual', focus, provider: cfg.provider, model: cfg.model, unverified, advice };
+  return { cached: false, id: saved?.id ?? null, created_at: nowIso, trigger: 'manual', focus, provider: cfg.provider, model: cfg.model, unverified, advice, knowledge: knowledgeIndex(advice) };
 }
 
 export async function saveFeedback(db, subject, b, { nowIso }) {
