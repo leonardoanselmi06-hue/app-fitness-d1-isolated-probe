@@ -5,6 +5,7 @@ import { planHeader, planScheda, planNotes, planPhases } from '/plan.js';
 import { setPlan, bindPlan } from '/plan-ui.js';
 import { adherenceView } from '/plan-adherence.js';
 import { compareView, bindCompare } from '/compare.js';
+import { aiView, bindAi } from '/ai.js';
 import { bindWeights } from '/weights-ui.js';
 import { checkinForm, checkinSummary, checkinList, bindCheckin } from '/checkin.js';
 const $ = id => document.getElementById(id);
@@ -105,6 +106,9 @@ async function loadCompare(days = cmpDays) {
   cmpDays = days;
   try { $('compareBox').innerHTML = compareView(await getJson(`/v1/compare?days=${days}`)); } catch { $('compareBox').innerHTML = ''; } // sezione accessoria
 }
+async function loadAi() {
+  try { $('aiBox').innerHTML = aiView(await getJson('/v1/ai/status')); } catch { $('aiBox').innerHTML = ''; } // sezione accessoria
+}
 async function loadAdherence() {
   try { const d = await getJson('/v1/plan/adherence'); $('planAdherence').innerHTML = adherenceView(d.adherence); } catch { $('planAdherence').innerHTML = ''; } // sezione accessoria: se manca, il resto del Piano funziona
 }
@@ -114,7 +118,7 @@ async function loadView(name) {
     const html = v.render(await getJson(v.days ? `${v.path}?days=${v.days}` : v.path));
     v.ids.forEach((id, i) => { $(id).innerHTML = html[i]; });
     if (name === 'piano') loadAdherence();
-    if (name === 'coach') loadCompare();
+    if (name === 'coach') { loadCompare(); loadAi(); }
   } catch (e) { v.ids.forEach((id, i) => { $(id).innerHTML = i === 0 ? `<div class="empty">${esc(e.message)}</div>` : ''; }); }
 }
 for (const [name, v] of Object.entries(VIEWS).filter(([, x]) => x.chips)) {
@@ -127,6 +131,7 @@ for (const [name, v] of Object.entries(VIEWS).filter(([, x]) => x.chips)) {
 }
 
 bindCompare({ root: $('view-coach'), load: loadCompare });
+bindAi({ root: $('aiBox'), reload: loadAi });
 bindWeights({ root: $('view-peso'), reload: () => loadView('peso') });
 bindCheckin({ root: $('view-recupero'), reload: () => loadView('recupero') });
 bindPlan({ root: $('view-piano'), dialog: $('planDialog'), reload: () => loadView('piano') });
