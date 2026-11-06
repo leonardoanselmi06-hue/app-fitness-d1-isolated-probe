@@ -6,6 +6,7 @@ import { addDays, daysBetween, mean, round, linreg } from '../coach/stats.js';
 import { loadSessionsBetween } from '../coach/data.js';
 import { analyzeSessions, exerciseSeries } from '../coach/rules-training.js';
 import { MUSCLE_LABEL } from '../coach/muscles.js';
+import { classifyAll } from '../coach/progression.js';
 import { listVersions, effective } from './store.js';
 import { computeAdherence, adherenceSummary } from './adherence.js';
 
@@ -47,6 +48,7 @@ async function nutritionSection(db, subject, start, last, avgKg) {
 }
 
 function trainingSection(sessions, start, last) {
+  const g = classifyAll(sessions, last), overall = { key: g.key, label: g.label, evaluable: g.evaluable, counts: g.counts, window_days: g.window_days }; // ultime 4 settimane della fase
   const an = analyzeSessions(sessions), strength = an.filter(a => a.strength), weeks = Math.max(1, (daysBetween(start, last) + 1) / 7);
   const sets = {}; for (const a of strength) for (const [m, n] of Object.entries(a.sets)) sets[m] = (sets[m] ?? 0) + n;
   const perWeek = Object.fromEntries(Object.entries(sets).map(([m, n]) => [MUSCLE_LABEL[m] ?? m, round(n / weeks, 1)]));
@@ -59,7 +61,7 @@ function trainingSection(sessions, start, last) {
     const k = Math.min(3, Math.floor(vals.length / 2)), e = edge(vals, k), pct = ((e.last - e.first) / e.first) * 100;
     prog.push({ exercise: ex.name, metric: useLoad ? 'e1rm_kg' : 'reps', first: round(e.first, 1), last: round(e.last, 1), pct: round(pct, 1), sessions: pts.length, trend: pct >= 1.5 ? 'progresso' : pct <= -1.5 ? 'calo' : 'stabile' });
   }
-  return { sessions_total: sessions.length, sessions_strength: strength.length, strength_per_week: round(strength.length / weeks, 1), sets_per_muscle_week: perWeek, avg_rest_sec: rests.length ? round(mean(rests), 0) : null, avg_rir_logged: rirs.length ? round(mean(rirs), 1) : null, rir_sets_with_value: rirs.length, progression: prog.sort((a, b) => b.pct - a.pct) };
+  return { sessions_total: sessions.length, sessions_strength: strength.length, strength_per_week: round(strength.length / weeks, 1), sets_per_muscle_week: perWeek, avg_rest_sec: rests.length ? round(mean(rests), 0) : null, avg_rir_logged: rirs.length ? round(mean(rirs), 1) : null, rir_sets_with_value: rirs.length, progression: prog.sort((a, b) => b.pct - a.pct), progression_overall: overall };
 }
 
 /** `phase`: riga di `phases`; `lastDay`: ultimo giorno incluso. */
