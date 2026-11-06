@@ -1,5 +1,5 @@
+import { esc, trainingList, weightSummary, weightChart, weightRecent } from '/views.js';
 const $ = id => document.getElementById(id);
-const esc = s => String(s ?? '—').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const LABEL = { training: 'Allenamento', body: 'Composizione', nutrition: 'Alimentazione', activity: 'Attività', sleep: 'Sonno', cardio: 'Cardio', recovery: 'Recupero', program: 'Programma' };
 
 async function refresh() {
@@ -55,5 +55,54 @@ $('syncFatSecret').addEventListener('click', async () => {
     else { out.textContent = `FatSecret: ${d.days_processed} giorni aggiornati (${d.entries} voci), ${d.remaining} da completare${d.remaining ? ' (ripremi il pulsante)' : ''}.`; await refresh(); }
   } catch { out.textContent = 'API non raggiungibile.'; } finally { b.disabled = false; }
 });
+// ---- Allenamenti e Peso ----
+const authMsg = r => (r.status === 401 || r.status === 403 ? 'Accesso richiesto: accedi con il tuo account.' : r.status === 503 ? 'Autenticazione non ancora configurata.' : 'Errore nel caricamento dei dati.');
+const getJson = async path => { const r = await fetch(path, { credentials: 'same-origin' }); if (!r.ok) throw new Error(authMsg(r)); return r.json(); };
+
+const train = { loaded: 0, total: 0, busy: false };
+async function loadTraining(reset = false) {
+  if (train.busy) return; train.busy = true;
+  const list = $('trainList'), more = $('trainMore');
+  try {
+    if (reset) { train.loaded = 0; list.innerHTML = '<div class="empty">Caricamento…</div>'; }
+    const d = await getJson(`/v1/derived/training?limit=20&offset=${train.loaded}`);
+    const html = trainingList(d);
+    if (train.loaded === 0) list.innerHTML = html; else list.insertAdjacentHTML('beforeend', html);
+    train.loaded += d.workouts.length; train.total = d.total;
+    $('trainTotal').textContent = `${d.total} allenamenti`;
+    more.hidden = !d.has_more;
+  } catch (e) { list.innerHTML = `<div class="empty">${esc(e.message)}</div>`; more.hidden = true; } finally { train.busy = false; }
+}
+$('trainMore').addEventListener('click', () => loadTraining());
+
+let weightDays = 90;
+async function loadWeight() {
+  try {
+    const d = await getJson(`/v1/derived/weight?days=${weightDays}`);
+    $('weightSummary').innerHTML = weightSummary(d);
+    $('weightChart').innerHTML = weightChart(d.daily);
+    $('weightRecent').innerHTML = weightRecent(d);
+  } catch (e) { $('weightSummary').innerHTML = `<div class="empty">${esc(e.message)}</div>`; $('weightChart').innerHTML = ''; $('weightRecent').innerHTML = ''; }
+}
+$('weightRange').addEventListener('click', ev => {
+  const b = ev.target.closest('button[data-days]'); if (!b) return;
+  weightDays = Number(b.dataset.days);
+  for (const c of document.querySelectorAll('#weightRange .chip')) c.setAttribute('aria-pressed', String(c === b));
+  loadWeight();
+});
+
+// ---- Navigazione a schede (hash) ----
+const TABS = ['home', 'allenamenti', 'peso'], loadedTabs = new Set();
+function route() {
+  const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
+  for (const v of document.querySelectorAll('.view')) v.hidden = v.dataset.view !== tab;
+  for (const a of document.querySelectorAll('.tabs a')) { if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
+  if (tab === 'allenamenti' && !loadedTabs.has(tab)) { loadedTabs.add(tab); loadTraining(true); }
+  if (tab === 'peso' && !loadedTabs.has(tab)) { loadedTabs.add(tab); loadWeight(); }
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 refresh();
+route();
