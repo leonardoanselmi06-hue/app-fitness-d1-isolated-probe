@@ -1,7 +1,8 @@
 // Fasi del sonno da Health Connect (SleepSessionRecord). Il telefono invia segmenti compatti [tipo, offset_min, durata_min]
 // rispetto all'inizio della sessione; il server ricava i minuti per fase (non si fida di riepiloghi del client).
 // Tipi Health Connect: 0 sconosciuto, 1 sveglio, 2 sonno generico, 3 fuori dal letto, 4 leggero, 5 profondo, 6 REM, 7 sveglio a letto.
-// Regola dei dati: una sessione senza fasi reali (nessun leggero/profondo/REM) NON ha fasi: minuti = null, mai zero inventati.
+// Regola dei dati: una sessione ha fasi solo se compaiono almeno DUE tra leggero/profondo/REM (un sonno reale le alterna; una sola fase,
+// es. "leggero 407, profondo 0, REM 0", è una registrazione senza dati di fase). Altrimenti minuti = null, mai zero inventati.
 export const STAGE_AWAKE = [1, 3, 7];
 export const MAX_SEGMENTS = 1500, MAX_SPAN_MIN = 36 * 60;
 
@@ -15,7 +16,7 @@ export function validSegments(segs) {
 export function summarizeStages(segs) {
   const min = t => segs.filter(s => s[0] === t).reduce((a, s) => a + s[2], 0);
   const light = min(4), deep = min(5), rem = min(6);
-  const staged = light + deep + rem > 0;
+  const staged = [light, deep, rem].filter(m => m > 0).length >= 2;
   if (!staged) return { staged: false, light_min: null, deep_min: null, rem_min: null, awake_min: null, asleep_stage_min: null };
   const awake = STAGE_AWAKE.filter(t => t !== 3).reduce((a, t) => a + min(t), 0); // "fuori dal letto" non è sonno né veglia a letto
   return { staged: true, light_min: light, deep_min: deep, rem_min: rem, awake_min: awake, asleep_stage_min: light + deep + rem + min(2) };

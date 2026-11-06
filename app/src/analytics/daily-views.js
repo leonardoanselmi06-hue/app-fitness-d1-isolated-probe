@@ -5,7 +5,7 @@ import { getGeneration } from '../ingest/ledger.js';
 import { localDate } from '../core/time.js';
 import { clampInt, round, mean } from './views.js';
 import { dayCompleteness } from './meal-completeness.js';
-import { matchStages } from './sleep-stages.js';
+import { matchStages, summarizeStages } from './sleep-stages.js';
 
 const DAY_MS = 86_400_000;
 const TZ = 'Europe/Rome';
@@ -84,7 +84,8 @@ export async function sleepView(db, subject, { days, now = new Date() } = {}) {
   // Le sessioni con fasi (Health Connect) sono record separati: non sono notti, si agganciano alle notti per sovrapposizione temporale.
   const sessions = parsed.filter(x => x.p.metric === 'sleep_stages').map(x => ({ start: Date.parse(x.p.start_at), end: Date.parse(x.p.end_at), p: x.p }));
   const nights = parsed.filter(x => x.p.metric !== 'sleep_stages').map(({ r, p }) => {
-    const st = matchStages({ start_at: p.start_at ?? r.observed_at, end_at: p.end_at }, sessions)?.p;
+    const sp = matchStages({ start_at: p.start_at ?? r.observed_at, end_at: p.end_at }, sessions)?.p;
+    const st = sp && { ...summarizeStages(sp.segments ?? []), segments: sp.segments }; // ricalcolo dai segmenti: la regola corrente vale anche per i record già salvati
     return {
       id: r.record_id, date: p.local_date ?? null, start_at: p.start_at ?? r.observed_at, end_at: p.end_at ?? null,
       start_local: localTime(p.start_at ?? r.observed_at, p.timezone), end_local: p.end_at ? localTime(p.end_at, p.timezone) : null,
