@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeWorkout, absent, num } from '../src/adapters/lyfta/normalize.js';
+import { normalizeWorkout, absent, num, durationSec } from '../src/adapters/lyfta/normalize.js';
 import { syncLyfta, pullAllWorkouts } from '../src/adapters/lyfta/sync.js';
 import { listCanonical, getGeneration } from '../src/ingest/ledger.js';
 import { MemoryRawStore } from '../src/storage/rawstore.js';
@@ -15,6 +15,16 @@ const run = (d, pager, n) => syncLyfta(d, { subject: S, fetchPage: pager, reques
 test('assenza: null, "null", "" e spazi normalizzati in modo deterministico', () => {
   for (const v of [null, undefined, '', 'null', ' NULL ']) assert.equal(absent(v), true);
   assert.equal(num('null'), null); assert.equal(num('5'), 5); assert.equal(num('7,5'), 7.5); assert.equal(num(0), 0);
+});
+
+test('durata: "m:ss" reale (Side Plank 0:40/1:00, cardio 80:15), secondi numerici invariati, formati non validi = null', () => {
+  assert.equal(durationSec('0:40'), 40); assert.equal(durationSec('1:00'), 60); assert.equal(durationSec('00:45'), 45); assert.equal(durationSec('80:15'), 4815);
+  assert.equal(durationSec(' 2:05 '), 125);
+  assert.equal(durationSec('60'), 60); assert.equal(durationSec(1200), 1200); assert.equal(durationSec('0'), 0); // zero legittimo conservato
+  for (const bad of [null, undefined, '', 'null', '1:75', '1:2', '1:00:30', 'abc', '-1:00', '1m']) assert.equal(durationSec(bad), null, String(bad));
+  const w = normalizeWorkout(workout(7001, { exercises: [{ exercise_id: 9, excercise_name: 'Side Plank', exercise_type: 'duration', sets: [
+    { id: 0, duration: '0:40', set_type_id: 0, is_completed: true }, { id: 0, duration: '1:00', set_type_id: 0, is_completed: true }, { id: 0, duration: '', set_type_id: 0, is_completed: true }] }] }));
+  assert.deepEqual(w.payload.exercises[0].sets.map(x => x.duration_sec), [40, 60, null]);
 });
 
 test('bodyweight: il carico resta zavorra esterna, il peso corporeo è un campo separato e non viene sommato', () => {
