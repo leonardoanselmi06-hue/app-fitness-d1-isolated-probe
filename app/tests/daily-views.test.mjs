@@ -28,6 +28,8 @@ async function nutritionDb() {
     entry(5, '2026-11-04', 'Breakfast', 'Yogurt', { calories: '300', protein: '10', carbohydrate: '40', fat: '8' }),
     entry(6, '2026-11-06', 'Breakfast', 'Caffè e latte', { calories: '200', protein: '5', carbohydrate: '30', fat: '4' }), // oggi
     entry(7, '2026-11-01', 'Dinner', 'Riso', { calories: '500', protein: '30', carbohydrate: '50', fat: '20' }),
+    entry(8, '2026-11-04', 'Lunch', 'Riso', { calories: '500', protein: '30', carbohydrate: '50', fat: '20' }),
+    entry(9, '2026-11-04', 'Dinner', 'Pollo', { calories: '400', protein: '40', carbohydrate: '0', fat: '10' }),
   ]);
   return db;
 }
@@ -44,18 +46,35 @@ test('alimentazione: totali giornalieri, pasti in ordine, mancanti = null, oggi 
   assert.equal(d.meals[0].entries[0].name, 'Banana');
 });
 
-test('alimentazione: medie solo sui giorni completi con voci; giorni senza voci contati come mancanti', async () => {
+test('alimentazione: medie solo sui giorni completi (pranzo + cena + colazione o altro); gli incompleti hanno il motivo', async () => {
   const v = await nutritionView(await nutritionDb(), S, { days: '7', now: NOW });
-  assert.deepEqual(v.averages.calories, { value: 520, n: 3 }); // 759, 300, 500: oggi escluso
-  assert.deepEqual(v.averages.protein, { value: 20.7, n: 3 });
+  const by = Object.fromEntries(v.by_day.map(d => [d.date, d.completeness]));
+  assert.equal(by['2026-11-04'].complete, true); assert.equal(by['2026-11-04'].reason, ''); // colazione + pranzo + cena
+  assert.equal(by['2026-11-05'].complete, false); assert.deepEqual(by['2026-11-05'].missing, []); assert.equal(by['2026-11-05'].reason, '1 voce senza calorie'); // pasti ok ma totale sottostimato
+  assert.equal(by['2026-11-01'].complete, false); assert.deepEqual(by['2026-11-01'].missing, ['Lunch', 'Breakfast_or_Other']); assert.equal(by['2026-11-01'].reason, 'manca il pranzo, manca colazione o altro');
+  assert.equal(by['2026-11-06'].complete, null); // oggi: non valutato
+  assert.equal(v.complete_days, 1); assert.equal(v.incomplete_days, 2);
+  assert.deepEqual(v.averages.calories, { value: 1200, n: 1 }); assert.deepEqual(v.averages.protein, { value: 80, n: 1 }); // 300+500+400
   assert.equal(v.empty_days, 3); // 31/10, 2/11, 3/11
   assert.equal(v.from, '2026-10-31'); assert.equal(v.to, '2026-11-06');
   const s = await nutritionView(await nutritionDb(), S, { days: '3', now: NOW });
   assert.deepEqual(s.by_day.map(x => x.date), ['2026-11-06', '2026-11-05', '2026-11-04']); assert.equal(s.empty_days, 0);
   const none = await nutritionView(newDb(), S, { now: NOW });
-  assert.deepEqual(none.by_day, []); assert.equal(none.averages.calories.value, null); assert.equal(none.averages.calories.n, 0);
+  assert.deepEqual(none.by_day, []); assert.equal(none.averages.calories.value, null); assert.equal(none.averages.calories.n, 0); assert.equal(none.complete_days, 0);
   assert.equal((await nutritionView(await nutritionDb(), S, { days: '9999', now: NOW })).window_days, 60);
   assert.equal((await nutritionView(await nutritionDb(), 'altro', { days: '7', now: NOW })).by_day.length, 0);
+});
+
+test('completezza: "Altro" vale come colazione; etichette sconosciute valgono "Altro"; mancano pranzo e cena', async () => {
+  const { dayCompleteness, incompleteReason } = await import('../src/analytics/meal-completeness.js');
+  assert.equal(dayCompleteness(['Lunch', 'Dinner', 'Other']).complete, true);
+  assert.equal(dayCompleteness(['Lunch', 'Dinner', 'Snack']).complete, true);
+  assert.equal(dayCompleteness(['Breakfast', 'Lunch', 'Dinner']).complete, true);
+  assert.equal(dayCompleteness(['Breakfast', 'Other', 'Dinner']).complete, false);
+  assert.equal(incompleteReason(dayCompleteness(['Breakfast'])), 'manca il pranzo, manca la cena');
+  assert.equal(dayCompleteness([]).complete, false);
+  assert.equal(dayCompleteness(['Lunch'], { partial: true }).complete, null);
+  assert.equal(dayCompleteness(['Lunch', 'Dinner', 'Other'], { noCalorieEntries: 2 }).reason, '2 voci senza calorie');
 });
 
 // ---------- Sonno ----------

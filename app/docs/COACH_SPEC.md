@@ -13,8 +13,8 @@ prima parte = obiettivi versionati + revisione settimanale; target inseriti via 
 - Le regole non scrivono nei RAW né nei dati canonici. Il Coach legge soltanto.
 
 ## Qualità dei dati osservata (motiva le regole)
-- Registro alimentare: i pasti stimati da ChatGPT non sono in FatSecret (fonte separata, oggi esclusa): giorni con totale molto
-  basso sono quasi sempre incompleti. → regola di completezza prima di ogni conclusione energetica.
+- Registro alimentare: i pasti stimati da ChatGPT non sono in FatSecret (fonte separata, oggi esclusa): un giorno senza pranzo, cena o colazione/altro
+  è incompleto. → regola di completezza (pasti) prima di ogni conclusione energetica; sostituisce l'euristica "sotto il 60% della mediana".
 - Peso: rumore giornaliero dell'ordine di ±1 kg, orari di pesata variabili. → trend con intervallo di confidenza (t di Student),
   mai su due pesate; verdetto "incerto" quando l'intervallo copre più esiti.
 - Lyfta non fornisce il muscolo per esercizio: mappa esercizio→muscolo mantenuta nel codice; gli esercizi non mappati sono
@@ -34,7 +34,7 @@ prima parte = obiettivi versionati + revisione settimanale; target inseriti via 
 ## Regole (id, soglie, esito)
 | Id | Dati | Esito |
 |---|---|---|
-| nutrition_logging | ultimi 14 g (oggi escluso); mediana kcal dei giorni registrati su 28 g | giorno "probabilmente incompleto" se kcal < 60 % della mediana. Attenzione se ≥20 % dei giorni registrati è incompleto o i giorni registrati sono <10/14 |
+| nutrition_logging | ultimi 14 g (oggi escluso) | **Giorno completo = pranzo + cena + almeno uno tra colazione e altro, senza voci senza calorie** (regola dell'utente, 6 nov 2026; "Altro" vale come colazione; etichette sconosciute valgono "Altro"; il giorno in corso non si valuta). Attenzione se i giorni completi su 14 sono <10. Solo i giorni completi entrano nelle medie e nelle stime |
 | weight_trend | media giornaliera, finestra 28 g (≥4 giorni in ≥14 g di arco) e 84 g | regressione lineare; intervallo al 95 % rispetto a 0,25–0,5 %/sett.: sotto / dentro / sopra / incerto. Calo >1 %/sett. = avviso a parte |
 | weighin_protocol | pesate 28 g | attenzione se <8 pesate o >30 % fuori dalla fascia 6–10 (Europe/Rome) |
 | protein | giorni completi 14 g; peso medio 14 g | g/kg rispetto a 1,6–2,2 |

@@ -1,35 +1,31 @@
 // Regole di alimentazione: completezza del diario, proteine e stima del fabbisogno energetico.
 // Prima si valuta se il diario è affidabile: senza giorni completi nessuna conclusione energetica.
-import { addDays, calendarDays, mean, median, roundTo, fmt, insight } from './stats.js';
+import { addDays, calendarDays, mean, roundTo, fmt, insight } from './stats.js';
 
 const KCAL_PER_KG = 7700;
 
-/** Giorni (oggi escluso) classificati in complete / incomplete / missing, con la soglia di completezza. */
+/** Giorni (oggi escluso) classificati in complete / incomplete / missing con la regola dei pasti (analytics/meal-completeness.js):
+ *  completo = pranzo + cena + almeno uno tra colazione e altro, senza voci senza calorie. */
 export function nutritionQuality(nutrition, today, spanDays = 28) {
   const byDate = new Map(nutrition.by_day.map(d => [d.date, d]));
-  const dates = calendarDays(addDays(today, -spanDays), addDays(today, -1));
-  const kcalOf = d => (d && d.totals.calories != null && d.totals.calories > 0 ? d.totals.calories : null);
-  const known = dates.map(d => kcalOf(byDate.get(d))).filter(x => x != null);
-  const med = known.length >= 7 ? median(known) : null;
-  const days = dates.map(date => {
-    const e = byDate.get(date), kcal = kcalOf(e);
-    if (!e) return { date, state: 'missing', kcal: null, protein: null };
-    const incomplete = kcal == null || (med != null && kcal < 0.6 * med);
-    return { date, state: incomplete ? 'incomplete' : 'complete', kcal, protein: e.totals.protein };
+  const days = calendarDays(addDays(today, -spanDays), addDays(today, -1)).map(date => {
+    const e = byDate.get(date);
+    if (!e) return { date, state: 'missing', kcal: null, protein: null, reason: 'nessun pasto registrato' };
+    return { date, state: e.completeness.complete ? 'complete' : 'incomplete', kcal: e.totals.calories > 0 ? e.totals.calories : null, protein: e.totals.protein, reason: e.completeness.reason };
   });
-  return { days, median: med };
+  return { days };
 }
 
+const shortD = d => `${Number(d.slice(8))}/${Number(d.slice(5, 7))}`;
 export function nutritionLoggingInsight(q, today) {
   const last14 = q.days.filter(d => d.date >= addDays(today, -14));
-  const logged = last14.filter(d => d.state !== 'missing'), incomplete = last14.filter(d => d.state === 'incomplete');
-  const ev = [`Giorni con pasti registrati: ${logged.length} su 14`, q.median != null ? `Giorni probabilmente incompleti: ${incomplete.length} (sotto il 60% della mediana di ${fmt(q.median, 0)} kcal)` : 'Mediana delle calorie non calcolabile (servono almeno 7 giorni registrati in 28)'];
-  if (incomplete.length) ev.push(`Da ricontrollare: ${incomplete.slice(-5).map(d => d.date).join(', ')}`);
-  const action = 'Registra tutti i pasti, anche quelli stimati, per almeno 7 giorni di fila: senza un diario completo non posso stimare il tuo fabbisogno.';
-  const data = { logged: logged.length, incomplete: incomplete.length, median_kcal: q.median };
-  if (logged.length < 10) return insight('nutrition_logging', 'Completezza del diario', 'attenzione', `Hai registrato i pasti solo in ${logged.length} giorni su 14.`, { evidence: ev, action, data });
-  if (incomplete.length / logged.length >= 0.2) return insight('nutrition_logging', 'Completezza del diario', 'attenzione', `${incomplete.length} giorni su ${logged.length} sembrano incompleti: le medie calorie sarebbero sottostimate.`, { evidence: ev, action, data });
-  return insight('nutrition_logging', 'Completezza del diario', 'ok', 'Diario completo: posso usare i dati alimentari.', { evidence: ev, data });
+  const logged = last14.filter(d => d.state !== 'missing'), incomplete = last14.filter(d => d.state === 'incomplete'), complete = last14.filter(d => d.state === 'complete');
+  const ev = [`Giorni completi: ${complete.length} su 14 (completo = pranzo, cena e almeno colazione o altro)`, `Giorni registrati ma incompleti: ${incomplete.length} · senza alcuna voce: ${last14.length - logged.length}`];
+  if (incomplete.length) ev.push(`Da ricontrollare: ${incomplete.slice(-5).map(d => `${shortD(d.date)} (${d.reason})`).join('; ')}`);
+  const action = 'Registra tutti i pasti, anche quelli stimati: servono almeno pranzo, cena e una tra colazione e altro. Senza giorni completi non posso stimare il tuo fabbisogno.';
+  const data = { complete: complete.length, logged: logged.length, incomplete: incomplete.length };
+  if (complete.length < 10) return insight('nutrition_logging', 'Completezza del diario', 'attenzione', `Solo ${complete.length} giorni su 14 hanno il diario completo (ne servono almeno 10).`, { evidence: ev, action, data });
+  return insight('nutrition_logging', 'Completezza del diario', 'ok', 'Diario completo nella maggior parte dei giorni: posso usare i dati alimentari.', { evidence: ev, data });
 }
 
 export function proteinInsight(q, weights, today, targets) {

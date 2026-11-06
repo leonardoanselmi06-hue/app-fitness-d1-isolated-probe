@@ -1,5 +1,6 @@
 // Dati sintetici per i test del Coach (nessun dato reale). Oggi = 2026-11-06 (venerdì), lunedì = 2026-11-02.
 import { addDays } from '../../src/coach/stats.js';
+import { dayCompleteness } from '../../src/analytics/meal-completeness.js';
 
 export const TODAY = '2026-11-06';
 export const NOW = new Date('2026-11-06T12:00:00Z');
@@ -16,13 +17,14 @@ export function weights(n, kg, { hour = 7, every = 1 } = {}) {
 }
 export const noise = i => (i % 2 ? 0.1 : -0.1);
 
-/** Diario: per ogni giorno passato (28) un oggetto per nutritionView.by_day. */
-export function nutrition(kcalOf, protein = 150) {
+/** Diario: per ogni giorno passato (28) un oggetto per nutritionView.by_day. `mealsOf(k)` = pasti presenti (default: tutti). */
+export function nutrition(kcalOf, protein = 150, mealsOf = () => ['Breakfast', 'Lunch', 'Dinner']) {
   const by_day = [];
   for (let k = 1; k <= 28; k++) {
     const date = addDays(TODAY, -k), kcal = kcalOf(k, date);
     if (kcal === undefined) continue; // giorno non registrato
-    by_day.push({ date, partial: false, entries: kcal == null ? 1 : 4, incomplete_entries: kcal == null ? 1 : 0, totals: { calories: kcal, protein: kcal == null ? null : protein, carbohydrate: null, fat: null, fiber: null, sugar: null }, meals: [] });
+    const noCal = kcal == null ? 1 : 0;
+    by_day.push({ date, partial: false, entries: 4, incomplete_entries: noCal, completeness: dayCompleteness(mealsOf(k), { noCalorieEntries: noCal }), totals: { calories: kcal, protein: kcal == null ? null : protein, carbohydrate: null, fat: null, fiber: null, sugar: null }, meals: [] });
   }
   return { by_day };
 }
