@@ -83,3 +83,13 @@ test('pesate escluse dal proprietario: tombstone del record già presente e filt
   const C = w('c', '2026-11-06T07:08:29Z', 73.6);
   await app(post(dev, { device_id: 'p1', weights: [A, B, C] })); rows = await listCanonical(db, 'owner', 'body'); assert.equal(rows.length, 2); // A non ricompare
 });
+test('esclusioni: la % di grasso della pesata esclusa viene tolta e non ricompare', async () => {
+  const db = newDb(), app = appFor(db), dev = await jwt({ common_name: 'c' });
+  const f = (id, time, pct) => ({ id, time, pct, origin: 'com.renpho.health' });
+  const X = f('x', '2026-11-06T07:07:37Z', 24.1), Y = f('y', '2026-11-06T07:08:29Z', 23);
+  await app(post(dev, { device_id: 'p1', body_fat: [X, Y] })); assert.equal((await listCanonical(db, 'owner', 'body')).length, 2);
+  await db.prepare("INSERT INTO meta (name, value) VALUES ('excluded_weights', ?)").bind(JSON.stringify(['2026-11-06T07:07:37.000Z'])).run();
+  const r = await (await app(post(dev, { device_id: 'p1', body_fat: [X, Y] }))).json(); assert.equal(r.body_fat.deleted, 1);
+  let rows = await listCanonical(db, 'owner', 'body'); assert.equal(rows.length, 1); assert.equal(rows[0].payload.pct, 23);
+  await app(post(dev, { device_id: 'p1', body_fat: [X, Y, f('z', '2026-11-07T07:00:00Z', 22.5)] })); assert.equal((await listCanonical(db, 'owner', 'body')).length, 2);
+});
