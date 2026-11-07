@@ -72,16 +72,21 @@ export function deviceIngest({ db, raw, now = () => new Date().toISOString(), en
       out.steps = await ingest({ db, raw, now }, { ...base, scope_id: 'steps', request_id: crypto.randomUUID(), artifact: JSON.stringify(b.steps),
         records: b.steps.map(s => ({ id: `steps:${s.date}`, domain: 'activity', observed_at: null, payload: { metric: 'steps_total', local_date: s.date, count: s.count, origins: s.origins ?? [], time_semantics: 'device_local_day', dedup: 'health_connect_aggregate' } })) });
     }
-    if (b.weights.length) {
-      // Pesate escluse dal proprietario (es. cancellate nell'app Renpho ma rimaste in Health Connect): lista di istanti ISO in meta('excluded_weights').
-      let excluded = new Set();
-      try { const row = await db.prepare("SELECT value FROM meta WHERE name = 'excluded_weights'").first(); if (row?.value) excluded = new Set(JSON.parse(row.value)); } catch { /* lista assente o illeggibile: nessuna esclusione */ }
-      const keep = b.weights.filter(w => !excluded.has(new Date(w.time).toISOString()));
+    // Misure escluse dal proprietario (es. cancellate nell'app Renpho ma rimaste in Health Connect): lista di istanti ISO in meta('excluded_weights'),
+    // valida per peso e per le misure collegate alla stessa pesata (% di grasso).
+    let excluded = new Set();
+    try { const row = await db.prepare("SELECT value FROM meta WHERE name = 'excluded_weights'").first(); if (row?.value) excluded = new Set(JSON.parse(row.value)); } catch { /* lista assente o illeggibile: nessuna esclusione */ }
+    const applyExclusions = async (scope, items) => {
+      const keep = items.filter(x => !excluded.has(new Date(x.time).toISOString()));
       let drop_ids = [];
       if (excluded.size) {
-        const { results } = await db.prepare("SELECT record_id, observed_at FROM current_records WHERE subject_id = 'owner' AND source_system = 'health_connect' AND source_account = ? AND scope_id = 'weight' AND deleted = 0").bind(b.device_id).all();
+        const { results } = await db.prepare("SELECT record_id, observed_at FROM current_records WHERE subject_id = 'owner' AND source_system = 'health_connect' AND source_account = ? AND scope_id = ? AND deleted = 0").bind(b.device_id, scope).all();
         drop_ids = results.filter(r => excluded.has(r.observed_at)).map(r => r.record_id);
       }
+      return { keep, drop_ids };
+    };
+    if (b.weights.length) {
+      const { keep, drop_ids } = await applyExclusions('weight', b.weights);
       out.weights = await ingest({ db, raw, now }, { ...base, scope_id: 'weight', request_id: crypto.randomUUID(), artifact: JSON.stringify(keep), drop_ids,
         records: keep.map(w => ({ id: `weight:${w.id}`, domain: 'body', observed_at: new Date(w.time).toISOString(), payload: { metric: 'body_weight_kg', kg: w.kg, time: new Date(w.time).toISOString(), local_date: localDate(w.time), origin: w.origin ?? null } })) });
     }
@@ -94,8 +99,9 @@ export function deviceIngest({ db, raw, now = () => new Date().toISOString(), en
           identity: 'provider_startTime', time_semantics: 'epoch_ms' } })) });
     }
     if (b.body_fat.length) {
-      out.body_fat = await ingest({ db, raw, now }, { ...base, scope_id: 'body_fat', request_id: crypto.randomUUID(), artifact: JSON.stringify(b.body_fat),
-        records: b.body_fat.map(f => ({ id: `bodyfat:${f.id}`, domain: 'body', observed_at: new Date(f.time).toISOString(), payload: { metric: 'body_fat_pct', pct: f.pct, time: new Date(f.time).toISOString(), local_date: localDate(f.time), origin: f.origin ?? null } })) });
+      const bf = await applyExclusions('body_fat', b.body_fat);
+      out.body_fat = await ingest({ db, raw, now }, { ...base, scope_id: 'body_fat', request_id: crypto.randomUUID(), artifact: JSON.stringify(bf.keep), drop_ids: bf.drop_ids,
+        records: bf.keep.map(f => ({ id: `bodyfat:${f.id}`, domain: 'body', observed_at: new Date(f.time).toISOString(), payload: { metric: 'body_fat_pct', pct: f.pct, time: new Date(f.time).toISOString(), local_date: localDate(f.time), origin: f.origin ?? null } })) });
     }
     if (b.sleep_stages.length) {
       out.sleep_stages = await ingest({ db, raw, now }, { ...base, scope_id: 'sleep_stages', request_id: crypto.randomUUID(), artifact: JSON.stringify(b.sleep_stages),
