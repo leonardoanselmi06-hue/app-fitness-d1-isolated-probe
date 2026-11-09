@@ -50,7 +50,7 @@ test('richieste: da valori del modulo a body API, recupero m:ss, rimozione, fase
   assert.equal(parseRest('2:30'), 150); assert.equal(parseRest(''), null); assert.ok(Number.isNaN(parseRest('2.5'))); assert.ok(Number.isNaN(parseRest('2:75')));
   const v = { exercise: 'Trazioni', sets: '4', reps_min: '6', reps_max: '10', rir: '1.5', rest: '3:00', method: '', note: '', valid_from: '2026-11-12', reason: 'più recupero' };
   const r = buildRequest('rx-edit', v, { phaseId: '2', day: '6.UPPER', version: '4' });
-  assert.equal(r.path, '/v1/plan/version'); assert.deepEqual(r.body, { kind: 'rx', phase_id: 2, day: '6.UPPER', exercise: 'Trazioni', valid_from: '2026-11-12', expected_version_id: 4, reason: 'più recupero', data: { order: 0, sets: 4, reps_min: 6, reps_max: 10, rir: 1.5, rest_sec: 180, method: null, note: null } });
+  assert.equal(r.path, '/v1/plan/version'); assert.deepEqual(r.body, { kind: 'rx', phase_id: 2, day: '6.UPPER', exercise: 'Trazioni', valid_from: '2026-11-12', expected_version_id: 4, reason: 'più recupero', data: { sets: 4, reps_min: 6, reps_max: 10, rir: 1.5, rest_sec: 180, method: null, note: null } });
   assert.deepEqual(buildRequest('rx-remove', v, { phaseId: '2', day: '6.UPPER', version: '4' }).body.data, { removed: true });
   assert.equal(buildRequest('rx-new', v, { phaseId: '2', day: 'A' }).body.expected_version_id, null);
   assert.throws(() => buildRequest('rx-new', { ...v, rest: 'tre' }, { phaseId: '2', day: 'A' }), /m:ss/);

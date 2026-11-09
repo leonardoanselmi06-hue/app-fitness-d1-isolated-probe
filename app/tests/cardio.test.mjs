@@ -79,3 +79,27 @@ test('plank da Lyfta: tenuta letta dalle serie, per lato = metà serie, aderenza
   assert.deepEqual([c.rows[0].sets_prescribed, c.rows[0].sets_done, c.rows[0].status], [4, 4, 'completo']);
   assert.match(rxForm({ mode: 'edit', day: 'd', e: { exercise: 'Side Plank', sets: 2, per_side: true, version_id: 1 }, today: '2026-11-09', phaseStart: '2026-10-10', phaseId: 1 }), /name="per_side"[^>]*checked/);
 });
+
+test('ordine esercizi: nuovo = in fondo al giorno, modifica senza posizione la conserva, posizione esplicita rispettata', async () => {
+  const { buildRequest, rxForm } = await import('../public/plan-forms.js');
+  const q = { exercise: 'X', sets: '2', rest: '', rir: '', hold: '', duration_min: '', valid_from: '2026-11-06' };
+  assert.equal('order' in buildRequest('rx-new', { ...q }, { phaseId: '1', day: 'd' }).body.data, false);
+  assert.equal(buildRequest('rx-new', { ...q, order: '5' }, { phaseId: '1', day: 'd' }).body.data.order, 4);
+  assert.match(rxForm({ mode: 'edit', day: 'd', e: { exercise: 'X', sets: 2, order: 3, version_id: 1 }, today: '2026-11-09', phaseStart: '2026-10-10', phaseId: 1 }), /name="order" value="4"/);
+});
+
+test('ordine esercizi lato server: nuovo in fondo, modifica conserva la posizione, posizione esplicita rispettata', async () => {
+  const db = newDb(), app = mk(db);
+  const { json: { phase_id } } = await call(app, '/v1/plan/phase/start', { name: 'Forza', start_date: '2026-10-10' });
+  await call(app, '/v1/plan/version', { kind: 'day', phase_id, day: 'D', valid_from: '2026-10-10', data: { order: 0 } });
+  const add = (exercise, data, extra = {}) => call(app, '/v1/plan/version', { kind: 'rx', phase_id, day: 'D', exercise, valid_from: '2026-10-10', data, ...extra });
+  assert.equal((await add('Zeta', { order: 0, sets: 3, reps_min: 5 })).status, 200);
+  assert.equal((await add('Alfa', { order: 2, sets: 3, reps_min: 5 })).status, 200);
+  assert.equal((await add('Side Plank', { sets: 2, hold_sec: 40, per_side: true })).status, 200); // senza posizione: in fondo
+  const ex = async () => (await call(app, '/v1/plan')).json.active.days.find(d => d.label === 'D').exercises;
+  let l = await ex(); assert.deepEqual(l.map(e => e.exercise), ['Zeta', 'Alfa', 'Side Plank']); assert.equal(l[2].order, 3);
+  const sp = l[2]; assert.equal((await add('Side Plank', { sets: 3, hold_sec: 40, per_side: true }, { expected_version_id: sp.version_id })).status, 200); // modifica senza posizione: resta ultimo
+  l = await ex(); assert.equal(l[2].order, 3); assert.equal(l[2].sets, 3);
+  assert.equal((await add('Side Plank', { order: 0, sets: 3, hold_sec: 40, per_side: true }, { expected_version_id: l[2].version_id, valid_from: '2026-10-11' })).status, 200);
+  l = await ex(); assert.equal(l[0].exercise, 'Side Plank'); // order 0 esplicito, a pari merito con Zeta ma prima per nome
+});

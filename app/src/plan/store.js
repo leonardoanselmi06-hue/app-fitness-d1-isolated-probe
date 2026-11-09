@@ -53,6 +53,10 @@ export async function saveVersion(db, subject, r, { today, nowIso }) {
     }
   }
   const open = await openVersion(db, subject, key);
+  if (r.kind === 'rx' && !data.removed && r.data?.order == null) { // posizione non indicata: in modifica resta com'è, per un esercizio nuovo va in fondo al giorno
+    if (open) stored = { ...stored, order: open.data.order ?? 0 };
+    else { const { results } = await db.prepare("SELECT data_json FROM plan_versions WHERE subject_id = ? AND kind = 'rx' AND phase_id = ? AND entity_key LIKE ? AND valid_to IS NULL").bind(subject, phaseId, `rx:${phaseId}:${slug(r.day)}:%`).all(); const os = results.map(x => JSON.parse(x.data_json)).filter(x => !x.removed).map(x => x.order ?? 0); stored = { ...stored, order: os.length ? Math.min(30, Math.max(...os) + 1) : 0 }; }
+  }
   if (data.removed) { insist(open && !open.data.removed, 422, 'nothing_to_remove'); stored = { ...open.data, removed: true }; }
   if (r.expected_version_id == null) insist(!open, 409, 'exists');
   else { insist(open && open.id === r.expected_version_id, 409, 'stale'); insist(valid_from >= open.valid_from, 422, 'valid_from_before_previous'); }  // stessa data = correzione: la versione precedente resta nello storico con intervallo vuoto
