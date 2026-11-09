@@ -103,3 +103,10 @@ test('ordine esercizi lato server: nuovo in fondo, modifica conserva la posizion
   assert.equal((await add('Side Plank', { order: 0, sets: 3, hold_sec: 40, per_side: true }, { expected_version_id: l[2].version_id, valid_from: '2026-10-11' })).status, 200);
   l = await ex(); assert.equal(l[0].exercise, 'Side Plank'); // order 0 esplicito, a pari merito con Zeta ma prima per nome
 });
+
+test('modulo esercizio: posizione subito dopo il nome, tastiera con ":" per recupero e tenuta', async () => {
+  const h = rxForm({ mode: 'new', day: 'D', e: null, today: '2026-11-09', phaseStart: '2026-10-10', phaseId: 1 });
+  assert.ok(h.indexOf('name="order"') > h.indexOf('name="exercise"') && h.indexOf('name="order"') < h.indexOf('name="sets"'));
+  for (const n of ['rest', 'hold']) assert.match(h, new RegExp(`name="${n}"[^>]*inputmode="text"`));
+  assert.doesNotMatch(h, /name="(rest|hold)"[^>]*inputmode="numeric"/);
+});
