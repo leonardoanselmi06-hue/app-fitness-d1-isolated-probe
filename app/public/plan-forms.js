@@ -16,6 +16,7 @@ export function rxForm({ mode, day, e, today, phaseStart, phaseId }) {
     + f('RIR', `<select name="rir">${RIRS.map(v => `<option value="${v}"${String(e?.rir ?? '') === v ? ' selected' : ''}>${v === '' ? '—' : v.replace('.', ',')}</option>`).join('')}</select>`)
     + `${f('Recupero', inp('rest', e?.rest_sec == null ? '' : fmtRest(e.rest_sec), 'inputmode="numeric" pattern="\\d{1,2}:\\d{2}" placeholder="2:30"'), 'min:sec')}</div>`
     + f('Durata (min)', inp('duration_min', e?.duration_min ?? '', 'type="number" min="1" max="600" inputmode="numeric"'), 'solo per corsa e cardio: secondario')
+    + f('Tenuta per serie', inp('hold', e?.hold_sec == null ? '' : fmtRest(e.hold_sec), 'inputmode="numeric" pattern="\\d{1,2}:\\d{2}" placeholder="0:40"'), 'min:sec, per plank e simili (anche sotto 1 min)')
     + f('Metodo', inp('method', e?.method ?? '', 'maxlength="60"')) + f('Nota', inp('note', e?.note ?? '', 'maxlength="200"'))
     + dateF('Valido dal', 'valid_from', today, phaseStart) + (mode === 'edit' ? f('Motivo del cambio', inp('reason', '', 'maxlength="200"')) : '')
     + actions(mode === 'edit' ? '<button type="button" class="pbtn danger" data-act="rx-remove">Rimuovi</button>' : '');
@@ -66,7 +67,8 @@ export function buildRequest(submit, v, ds) {
     const base = { kind: 'rx', phase_id: Number(ds.phaseId), day: ds.day, exercise: v.exercise, valid_from: v.valid_from, expected_version_id: version, reason: text(v.reason) };
     if (submit === 'rx-remove') return { path: '/v1/plan/version', body: { ...base, data: { removed: true } } };
     const rest = parseRest(v.rest); if (Number.isNaN(rest)) throw new Error('Recupero: usa il formato m:ss (es. 2:30).');
-    return { path: '/v1/plan/version', body: { ...base, data: { order: 0, sets: toInt(v.sets), reps_min: toInt(v.reps_min), reps_max: toInt(v.reps_max), rir: v.rir === '' ? null : Number(v.rir), rest_sec: rest, ...(toInt(v.duration_min) != null ? { duration_min: toInt(v.duration_min) } : {}), method: text(v.method), note: text(v.note) } } };
+    const hold = parseRest(v.hold); if (Number.isNaN(hold) || (hold != null && hold < 5)) throw new Error('Tenuta: usa il formato m:ss (es. 0:40), almeno 0:05.');
+    return { path: '/v1/plan/version', body: { ...base, data: { order: 0, sets: toInt(v.sets), reps_min: toInt(v.reps_min), reps_max: toInt(v.reps_max), rir: v.rir === '' ? null : Number(v.rir), rest_sec: rest, ...(toInt(v.duration_min) != null ? { duration_min: toInt(v.duration_min) } : {}), ...(hold != null ? { hold_sec: hold } : {}), method: text(v.method), note: text(v.note) } } };
   }
   if (submit === 'day-new' || submit === 'day-edit' || submit === 'day-remove') {
     const base = { kind: 'day', phase_id: Number(ds.phaseId), day: v.label ?? ds.day, valid_from: v.valid_from, expected_version_id: version };

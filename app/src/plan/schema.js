@@ -46,11 +46,11 @@ export function validateData(kind, d) {
     return { order: optInt(d.order ?? 0, 0, 20, 'invalid_day'), focus: optStr(d.focus, 60, 'invalid_day') };
   }
   if (kind === 'rx') {
-    only(d, ['order', 'sets', 'reps_min', 'reps_max', 'rir', 'rest_sec', 'duration_min', 'method', 'note'], 'invalid_rx');
+    only(d, ['order', 'sets', 'reps_min', 'reps_max', 'rir', 'rest_sec', 'duration_min', 'hold_sec', 'method', 'note'], 'invalid_rx');
     const reps_min = optInt(d.reps_min, 1, 100, 'invalid_rx'), reps_max = optInt(d.reps_max, 1, 100, 'invalid_rx');
     insist(reps_min == null || reps_max == null || reps_max >= reps_min, 422, 'invalid_rx');
     insist(d.rir == null || (typeof d.rir === 'number' && d.rir >= 0 && d.rir <= 6 && Number.isInteger(d.rir * 2)), 422, 'invalid_rx'); // RIR 0–6, passi da 0,5
-    return { order: optInt(d.order ?? 0, 0, 30, 'invalid_rx'), sets: (insist(d.sets != null, 422, 'invalid_rx'), optInt(d.sets, 1, 20, 'invalid_rx')), reps_min, reps_max, rir: d.rir ?? null, rest_sec: optInt(d.rest_sec, 0, 900, 'invalid_rx'), ...(d.duration_min != null ? { duration_min: optInt(d.duration_min, 1, 600, 'invalid_rx') } : {}), method: optStr(d.method, 60, 'invalid_rx'), note: optStr(d.note, 200, 'invalid_rx') };
+    return { order: optInt(d.order ?? 0, 0, 30, 'invalid_rx'), sets: (insist(d.sets != null, 422, 'invalid_rx'), optInt(d.sets, 1, 20, 'invalid_rx')), reps_min, reps_max, rir: d.rir ?? null, rest_sec: optInt(d.rest_sec, 0, 900, 'invalid_rx'), ...(d.duration_min != null ? { duration_min: optInt(d.duration_min, 1, 600, 'invalid_rx') } : {}), ...(d.hold_sec != null ? { hold_sec: optInt(d.hold_sec, 5, 900, 'invalid_rx') } : {}), method: optStr(d.method, 60, 'invalid_rx'), note: optStr(d.note, 200, 'invalid_rx') };
   }
   only(d, ['date', 'category', 'title', 'text'], 'invalid_note');
   insist(validDay(d.date), 422, 'invalid_note'); insist(NOTE_CATEGORIES.includes(d.category), 422, 'invalid_note');

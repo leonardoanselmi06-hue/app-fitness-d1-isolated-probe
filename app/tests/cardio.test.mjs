@@ -57,3 +57,13 @@ test('un allenamento "Corsa" separato: giorno secondario, minuti confrontati, fu
 test('il cardio non è mai una seduta di forza né un esercizio "extra" di una seduta di pesi', () => {
   const a = analyzeSessions([{ id: 'x', date: '2026-11-03', title: 'Corsa', exercises: [{ name: 'Run on Treadmill', sets: [dur(1800)] }] }]); assert.equal(a[0].strength, false); assert.equal(a[0].total, 0);
 });
+
+test('tenuta per serie (plank): secondi, anche sotto 1 minuto', async () => {
+  const { validateData } = await import('../src/plan/schema.js'); const { rxLine } = await import('../public/plan.js'); const { buildRequest } = await import('../public/plan-forms.js');
+  assert.equal(validateData('rx', { order: 0, sets: 3, hold_sec: 36 }).hold_sec, 36);
+  assert.throws(() => validateData('rx', { order: 0, sets: 3, hold_sec: 2 })); assert.throws(() => validateData('rx', { order: 0, sets: 3, hold_sec: 'x' }));
+  assert.equal(validateData('rx', { order: 0, sets: 3 }).hold_sec, undefined);
+  assert.equal(rxLine({ sets: 3, hold_sec: 40, rest_sec: 60 }), '3 serie × 0:40 tenuta · rec 1:00');
+  const r = buildRequest('rx-new', { exercise: 'Side Plank', sets: '3', hold: '0:40', rest: '', reps_min: '', reps_max: '', rir: '', duration_min: '', valid_from: '2026-11-09' }, { phaseId: '1', day: 'Corsa' });
+  assert.equal(r.body.data.hold_sec, 40); assert.throws(() => buildRequest('rx-new', { exercise: 'x', sets: '3', hold: '0:02', rest: '', rir: '', valid_from: '2026-11-09' }, { phaseId: '1', day: 'd' }));
+});
