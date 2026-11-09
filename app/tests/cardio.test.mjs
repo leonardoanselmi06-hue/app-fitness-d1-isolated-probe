@@ -67,3 +67,15 @@ test('tenuta per serie (plank): secondi, anche sotto 1 minuto', async () => {
   const r = buildRequest('rx-new', { exercise: 'Side Plank', sets: '3', hold: '0:40', rest: '', reps_min: '', reps_max: '', rir: '', duration_min: '', valid_from: '2026-11-09' }, { phaseId: '1', day: 'Corsa' });
   assert.equal(r.body.data.hold_sec, 40); assert.throws(() => buildRequest('rx-new', { exercise: 'x', sets: '3', hold: '0:02', rest: '', rir: '', valid_from: '2026-11-09' }, { phaseId: '1', day: 'd' }));
 });
+
+test('plank da Lyfta: tenuta letta dalle serie, per lato = metà serie, aderenza con serie doppie', async () => {
+  const { suggestDays } = await import('../src/plan/lyfta-suggest.js'); const { compareSession } = await import('../src/plan/adherence.js'); const { rxLine } = await import('../public/plan.js'); const { rxForm } = await import('../public/plan-forms.js');
+  const set = d => ({ duration_sec: d, reps: null, warmup: false });
+  const day = suggestDays([{ id: 1, date: '2026-11-07', title: '6.UPPER', exercises: [{ name: 'Side Plank', sets: [set(40), set(36), set(40), set(38)] }, { name: 'Front Plank', sets: [set(60), set(60), set(60)] }] }]).find(d => d.title === '6.UPPER');
+  const side = day.exercises.find(e => e.exercise === 'Side Plank'), front = day.exercises.find(e => e.exercise === 'Front Plank');
+  assert.deepEqual([side.sets, side.hold_sec, side.per_side], [2, 39, true]); assert.deepEqual([front.sets, front.hold_sec, front.per_side], [3, 60, undefined]);
+  assert.equal(rxLine({ ...side, rest_sec: null }), '2 serie per lato × 0:39 tenuta');
+  const c = compareSession([{ exercise: 'Side Plank', order: 0, sets: 2, hold_sec: 40, per_side: true }], [{ name: 'Side Plank', sets: [set(40), set(36), set(40), set(38)] }]);
+  assert.deepEqual([c.rows[0].sets_prescribed, c.rows[0].sets_done, c.rows[0].status], [4, 4, 'completo']);
+  assert.match(rxForm({ mode: 'edit', day: 'd', e: { exercise: 'Side Plank', sets: 2, per_side: true, version_id: 1 }, today: '2026-11-09', phaseStart: '2026-10-10', phaseId: 1 }), /name="per_side"[^>]*checked/);
+});

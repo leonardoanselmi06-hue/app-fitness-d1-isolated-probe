@@ -36,8 +36,9 @@ export function compareSession(presc, exercises) {
     const lo = p.reps_min ?? 0, hi = p.reps_max ?? Infinity, hasRange = p.reps_min != null || p.reps_max != null;
     const reps = sets.filter(s => typeof s.reps === 'number' && s.reps > 0);
     const rirs = sets.map(s => s.rir).filter(r => typeof r === 'number');
+    const need = p.sets * (p.per_side ? 2 : 1); // per lato: Lyfta registra una serie per ciascun lato
     rows.push({
-      exercise: p.exercise, sets_prescribed: p.sets, sets_done: n, status: n === 0 ? 'saltato' : n < p.sets ? 'parziale' : 'completo', replaced_by: null,
+      exercise: p.exercise, sets_prescribed: need, sets_done: n, status: n === 0 ? 'saltato' : n < need ? 'parziale' : 'completo', replaced_by: null,
       reps: hasRange && reps.length ? { below: reps.filter(s => s.reps < lo).length, in: reps.filter(s => s.reps >= lo && s.reps <= hi).length, above: reps.filter(s => s.reps > hi).length } : null,
       rir_target: p.rir ?? null, rir_logged: rirs.length ? round(mean(rirs), 1) : null, rir_sets: rirs.length, rir_diff: p.rir != null && rirs.length ? round(mean(rirs) - p.rir, 1) : null,
       rest_prescribed: p.rest_sec ?? null, rest_logged: n ? d.rest : null, rest_match: n && p.rest_sec != null && d.rest != null ? p.rest_sec === d.rest : null, // un esercizio non svolto non ha un recupero da confrontare
