@@ -12,14 +12,14 @@ const wrap = (title, body, attrs) => `<form id="planForm" ${attrs}><h2>${esc(tit
 
 export function rxForm({ mode, day, e, today, phaseStart, phaseId }) {
   const body = f('Esercizio', inp('exercise', e?.exercise ?? '', `required maxlength="80" ${mode === 'edit' ? 'readonly' : ''}`), mode === 'edit' ? '' : 'Usa lo stesso nome di Lyfta')
+    + f('Posizione nel giorno', inp('order', e?.order == null ? '' : e.order + 1, 'type="number" min="1" max="31" inputmode="numeric"'), mode === 'edit' ? '1 = primo; usa un numero alto per metterlo in fondo' : 'vuoto = in fondo')
     + `<div class="pgrid">${f('Serie', inp('sets', e?.sets ?? '', 'type="number" min="1" max="20" required inputmode="numeric"'), 'cardio: 1')}${f('Rip. min', inp('reps_min', e?.reps_min ?? '', 'type="number" min="1" max="100" inputmode="numeric"'))}${f('Rip. max', inp('reps_max', e?.reps_max ?? '', 'type="number" min="1" max="100" inputmode="numeric"'))}`
     + f('RIR', `<select name="rir">${RIRS.map(v => `<option value="${v}"${String(e?.rir ?? '') === v ? ' selected' : ''}>${v === '' ? '—' : v.replace('.', ',')}</option>`).join('')}</select>`)
-    + `${f('Recupero', inp('rest', e?.rest_sec == null ? '' : fmtRest(e.rest_sec), 'inputmode="numeric" pattern="\\d{1,2}:\\d{2}" placeholder="2:30"'), 'min:sec')}</div>`
+    + `${f('Recupero', inp('rest', e?.rest_sec == null ? '' : fmtRest(e.rest_sec), 'inputmode="text" autocomplete="off" pattern="\\d{1,2}:\\d{2}" placeholder="2:30"'), 'min:sec')}</div>`
     + f('Durata (min)', inp('duration_min', e?.duration_min ?? '', 'type="number" min="1" max="600" inputmode="numeric"'), 'solo per corsa e cardio: secondario')
-    + f('Tenuta per serie', inp('hold', e?.hold_sec == null ? '' : fmtRest(e.hold_sec), 'inputmode="numeric" pattern="\\d{1,2}:\\d{2}" placeholder="0:40"'), 'min:sec, per plank e simili (anche sotto 1 min)')
+    + f('Tenuta per serie', inp('hold', e?.hold_sec == null ? '' : fmtRest(e.hold_sec), 'inputmode="text" autocomplete="off" pattern="\\d{1,2}:\\d{2}" placeholder="0:40"'), 'min:sec, per plank e simili (anche sotto 1 min)')
     + `<label class="pcheck"><input type="checkbox" name="per_side" value="1"${e?.per_side ? ' checked' : ''}> Serie per lato <small>Lyfta non distingue destra/sinistra: ne registri il doppio (2 per lato = 4 su Lyfta)</small></label>`
     + f('Metodo', inp('method', e?.method ?? '', 'maxlength="60"')) + f('Nota', inp('note', e?.note ?? '', 'maxlength="200"'))
-    + f('Posizione nel giorno', inp('order', e?.order == null ? '' : e.order + 1, 'type="number" min="1" max="31" inputmode="numeric"'), mode === 'edit' ? '1 = primo; usa un numero alto per metterlo in fondo' : 'vuoto = in fondo')
     + dateF('Valido dal', 'valid_from', today, phaseStart) + (mode === 'edit' ? f('Motivo del cambio', inp('reason', '', 'maxlength="200"')) : '')
     + actions(mode === 'edit' ? '<button type="button" class="pbtn danger" data-act="rx-remove">Rimuovi</button>' : '');
   return wrap(mode === 'edit' ? `Modifica ${e.exercise}` : `Nuovo esercizio · ${day}`, body, `data-submit="rx-${mode}" data-phase-id="${phaseId}" data-day="${esc(day)}" ${e ? `data-version="${e.version_id}"` : ''}`);
