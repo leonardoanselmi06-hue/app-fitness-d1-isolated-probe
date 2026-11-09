@@ -10,7 +10,7 @@ const btn = (act, label, attrs = '', cls = 'sec') => `<button type="button" clas
 
 // Differenze tra due versioni (per lo storico): "recupero 2:30 → 3:00".
 const FIELDS = {
-  rx: [['sets', 'serie', v => v], ['reps', 'ripetizioni', (_, d) => reps(d)], ['rir', 'RIR', fmtRir], ['rest_sec', 'recupero', fmtRest], ['duration_min', 'durata (min)', v => v], ['hold_sec', 'tenuta per serie', fmtRest], ['per_side', 'per lato', v => (v ? 'sì' : 'no')],['method', 'metodo', v => v], ['note', 'nota', v => v]],
+  rx: [['order', 'posizione', v => v + 1], ['sets', 'serie', v => v], ['reps', 'ripetizioni', (_, d) => reps(d)], ['rir', 'RIR', fmtRir], ['rest_sec', 'recupero', fmtRest], ['duration_min', 'durata (min)', v => v], ['hold_sec', 'tenuta per serie', fmtRest], ['per_side', 'per lato', v => (v ? 'sì' : 'no')],['method', 'metodo', v => v], ['note', 'nota', v => v]],
   phase: [['name', 'nome', v => v], ['goal', 'obiettivo', v => v], ['goal_type', 'tipo di obiettivo', v => v], ['targets', 'target', v => targetsLine(v)], ['method', 'metodologia', v => v]],
   note: [['date', 'data', v => v], ['category', 'categoria', v => v], ['title', 'titolo', v => v], ['text', 'testo', v => v]],
 };
