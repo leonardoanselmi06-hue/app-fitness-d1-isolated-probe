@@ -4,6 +4,7 @@ import { AppError, insist } from '../core/errors.js';
 import { sha256Hex, stableStringify } from '../core/hash.js';
 import { buildDossier } from './dossier.js';
 import { callModel, extractJson, aiConfig } from './provider.js';
+import { applyConfidenceCaps } from './confidence.js';
 import { knowledgeText, knowledgeIds, knowledgeIndex } from './knowledge.js';
 
 export const PROMPT_VERSION = 'v5';
@@ -118,6 +119,7 @@ export async function generateAdvice(db, subject, { cfg, fetchFn, now, body }) {
     res = { text: again.text, tokens_in: (res.tokens_in ?? 0) + (again.tokens_in ?? 0), tokens_out: (res.tokens_out ?? 0) + (again.tokens_out ?? 0) }; advice = validateAdvice(extractJson(again.text));
   }
   if (!advice) throw new AppError(502, 'ai_invalid_response');
+  applyConfidenceCaps(advice, dossier); // la confidenza massima la decide il codice, non il modello
   const unverified = verifyEvidence(advice, dossier);
   await db.prepare('INSERT INTO ai_advice (subject_id, created_at, trigger, focus, provider, model, prompt_version, dossier_hash, dossier_json, response_json, unverified, tokens_in, tokens_out) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
     .bind(subject, nowIso, 'manual', focus, cfg.provider, cfg.model, PROMPT_VERSION, hash, JSON.stringify(dossier), JSON.stringify(advice), unverified, res.tokens_in, res.tokens_out).run();
