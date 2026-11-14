@@ -92,3 +92,7 @@ per il caricamento da D1 (target versionati, tabella assente → default) e per 
 - Indicatore principale: ripetizioni a parità di carico (carico di riferimento = il più alto dell'ultima seduta nella finestra; ripetizioni + RIR se presente in tutte le serie). Servono 3 sedute a quel carico su 21 giorni. Soglia di rumore: 1 ripetizione (la soglia ±3 % vale solo per l'e1RM, da ricalcolare dopo una misura reale di variabilità).
 - L'e1RM resta dato secondario (`e1rm_status`) e ripiego quando i dati a carico fisso non bastano: il campo `basis` dichiara quale base ha deciso (`fixed_load` o `e1rm`). Esercizi a corpo libero: le ripetizioni sono già a carico fisso.
 - Confidenza: sempre "bassa" (un solo soggetto, più variabili che cambiano). "Alta" non è ammessa.
+
+## Cardio: solo monitoraggio (14 nov 2026)
+- Scheda Cardio (`/v1/derived/cardio`): tempo per fascia a settimana (lunedì–domenica) e frequenza media per seduta, dai dati Polar. Le fasce sono quelle FISSE di Polar (100–120, 120–140, … bpm): "zona 2" = la seconda (oggi 120–140 bpm), non una zona personalizzata. Sedute senza dettaglio: dichiarate, mai zero; settimana in corso parziale.
+- Frequenza cardiaca a parità di ritmo: NON disponibile (i dati Polar salvati hanno solo i battiti, non la velocità). Nessun test periodico. Il Coach non usa ancora il cardio.
