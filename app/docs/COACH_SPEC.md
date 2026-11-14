@@ -87,3 +87,8 @@ per il caricamento da D1 (target versionati, tabella assente → default) e per 
 ## Base di conoscenza dell'IA (prompt v4)
 - `src/ai/knowledge.js`: voci K1…K14 (volume, frequenza, intensità, recuperi, nutrizione per massa e definizione, sonno, cardio concorrente, scarico, salute generale) con fonti S1…S15. Ogni voce dichiara il livello: `letta` (pagina aperta e letta nella ricerca del 6 novembre 2026) o `nota` (pagina non apribile in quella sessione: da confermare). Testo leggibile in `docs/KNOWLEDGE_BASE.md` (copia nel Project).
 - L'IA vede le voci nel prompt e cita gli id in `sources` per priorità (id sconosciuti scartati); la PWA mostra le fonti come link, con "(da confermare)" per le voci `nota`. I dati dell'utente prevalgono sulle indicazioni generali; ciò che non è in base è dichiarato "prassi comune".
+
+## Progressione: opzione B (14 nov 2026)
+- Indicatore principale: ripetizioni a parità di carico (carico di riferimento = il più alto dell'ultima seduta nella finestra; ripetizioni + RIR se presente in tutte le serie). Servono 3 sedute a quel carico su 21 giorni. Soglia di rumore: 1 ripetizione (la soglia ±3 % vale solo per l'e1RM, da ricalcolare dopo una misura reale di variabilità).
+- L'e1RM resta dato secondario (`e1rm_status`) e ripiego quando i dati a carico fisso non bastano: il campo `basis` dichiara quale base ha deciso (`fixed_load` o `e1rm`). Esercizi a corpo libero: le ripetizioni sono già a carico fisso.
+- Confidenza: sempre "bassa" (un solo soggetto, più variabili che cambiano). "Alta" non è ammessa.

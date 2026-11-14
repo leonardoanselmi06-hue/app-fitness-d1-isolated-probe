@@ -12,7 +12,7 @@ const classify = (name, pts) => classifyExercise(buildExposures(sess(name, pts))
 
 test('carico che sale con stesso RIR = in progresso; piatto per settimane = ferma con giorni dall\'ultimo massimo', () => {
   const up = classify('Barbell Bench Press', weekly('x', w => [8, 60 + w * 2.5, 2]));
-  assert.equal(up.status, 'in progresso'); assert.equal(up.metric, 'e1rm_kg'); assert.equal(up.confidence, 'alta'); assert.ok(up.pct_week > 0.5); assert.equal(up.rir_used, true);
+  assert.equal(up.status, 'in progresso'); assert.equal(up.metric, 'e1rm_kg'); assert.equal(up.confidence, 'bassa'); assert.equal(up.basis, 'e1rm'); /* carico cambia ogni seduta: niente serie a carico fisso, ripiego sull'e1RM */ assert.ok(up.pct_week > 0.5); assert.equal(up.rir_used, true);
   const flat = classify('Barbell Bench Press', weekly('x', () => [8, 80, 2]));
   assert.equal(flat.status, 'ferma'); assert.ok(flat.days_since_best >= 70); assert.equal(flat.pct_week, 0);
 });
@@ -21,7 +21,7 @@ test('stesso carico ma RIR che scende (più sforzo) non è progresso; carico pi�
   const harder = classify('Barbell Bench Press', weekly('x', w => [8, 80 + w * 0.5, Math.max(0, 3 - Math.floor(w / 3))]));
   assert.notEqual(harder.status, 'in progresso');
   // stesso carico, RIR che sale da 0 a 3: l'allenato migliora (più riserva allo stesso carico)
-  const easier = classify('Barbell Bench Press', weekly('x', w => [8, 80, Math.min(3, Math.floor(w / 3))]));
+  const easier = classify('Barbell Bench Press', weekly('x', w => [8, 80, Math.max(0, Math.min(3, w - 8))]));
   assert.equal(easier.status, 'in progresso');
 });
 test('senza RIR: forma semplice e fiducia bassa', () => {
@@ -71,4 +71,21 @@ test('report di fase: mostra la classificazione globale di progressione', () => 
     training: { strength_per_week: null, sessions_strength: 0, sessions_total: 0, avg_rest_sec: null, avg_rir_logged: null, rir_sets_with_value: 0, sets_per_muscle_week: {}, progression: [], progression_overall: { key: 'stalling', label: 'IN STALLO', evaluable: 5, counts: { progressing: 0, stalled: 4, declining: 1, insufficient: 2 }, window_days: 28 } } };
   const html = reportView(r); assert.match(html, /IN STALLO/); assert.match(html, /4 fermi/); assert.match(html, /ultime 4 sett\./);
   assert.ok(!reportView({ ...r, training: { ...r.training, progression_overall: undefined } }).includes('Progressione</span>'));
+});
+
+test('opzione B: ripetizioni a parità di carico = indicatore principale; e1RM secondario; confidenza mai "alta"', () => {
+  const up = classify('Barbell Bench Press', weekly('x', w => [w < 8 ? 6 : 6 + (w - 7), 80, 2]));
+  assert.equal(up.basis, 'fixed_load'); assert.equal(up.status, 'in progresso'); assert.equal(up.fixed.load, 80); assert.ok(up.fixed.change_reps >= 1); assert.equal(up.confidence, 'bassa'); assert.ok(up.e1rm_status);
+  const flat = classify('Barbell Bench Press', weekly('x', () => [8, 80, 2]));
+  assert.equal(flat.status, 'ferma'); assert.equal(flat.fixed.change_reps, 0);
+  const down = classify('Barbell Bench Press', weekly('x', w => [w < 8 ? 10 : 10 - (w - 7), 80, 2]));
+  assert.equal(down.status, 'in calo');
+  // una ripetizione di scarto resta dentro il rumore
+  assert.equal(classify('Barbell Bench Press', weekly('x', w => [w === 11 ? 9 : 8, 80, 2])).status, 'ferma');
+});
+test('opzione B: corpo libero = ripetizioni (già a carico fisso); poche sedute al carico attuale = ripiego e1RM dichiarato', () => {
+  const bw = classify('Pull Up', weekly('x', w => [w < 8 ? 6 : 6 + (w - 7), null, null]));
+  assert.equal(bw.basis, 'fixed_load'); assert.equal(bw.status, 'in progresso');
+  const jump = classify('Barbell Bench Press', [...weekly('x', () => [8, 70, 2]).slice(0, 8), [8, 8, 90, 2]]);
+  assert.equal(jump.basis, 'e1rm'); assert.equal(jump.fixed, null);
 });
