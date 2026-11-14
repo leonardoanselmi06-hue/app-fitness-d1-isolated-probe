@@ -16,4 +16,4 @@ migrations_dir = "migrations"
 
 # Cron giornaliero (04:17 UTC). Il job è SPENTO finché LYFTA_SYNC_ENABLED non è "true".
 [triggers]
-crons = ["17 4 * * *"]
+crons = ["17 4 * * *", "47 18 * * *"]

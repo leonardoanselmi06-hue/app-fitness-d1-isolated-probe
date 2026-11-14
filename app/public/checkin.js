@@ -5,6 +5,8 @@ export const ITEMS = [
   ['sleep_quality', 'Sonno percepito', 'pessimo', 'ottimo'], ['readiness', 'Prontezza ad allenarti', 'per niente', 'al massimo'],
   ['fatigue', 'Stanchezza', 'nessuna', 'estrema'], ['soreness', 'Indolenzimento muscolare', 'nessuno', 'forte'], ['stress', 'Stress', 'basso', 'alto'],
 ];
+// Verso: true = più alto è peggio (il calcolo dell'indice li inverte).
+export const WORSE_HIGH = new Set(['fatigue', 'soreness', 'stress']);
 const SHORT = { sleep_quality: 'Sonno', readiness: 'Prontezza', fatigue: 'Stanch.', soreness: 'Indol.', stress: 'Stress' };
 const num = (v, d = 1) => (v == null ? '—' : String(Math.round(v * 10 ** d) / 10 ** d).replace('.', ','));
 const kv = (label, value, small = '') => `<div class="kv"><span>${esc(label)}</span><strong>${value}</strong>${small ? `<small>${esc(small)}</small>` : ''}</div>`;
@@ -22,7 +24,7 @@ export function checkinSummary(d) {
   const a = d.last7, p = d.prev7;
   if (a.n < 3) return `<div class="empty">Servono almeno 3 check-in negli ultimi 7 giorni per le medie (ne ho ${a.n}).</div>`;
   const delta = a.index != null && p.index != null ? a.index - p.index : null;
-  return `<div class="kvgrid">${kv('Indice di recupero', a.index == null ? '—' : `${a.index}/100`, delta == null ? `${a.n} check-in · confronto non disponibile` : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)} rispetto ai 7 giorni prima`)}${ITEMS.map(([k, label]) => kv(label, `${num(a[k])}/5`, p[k] == null ? '' : `prima ${num(p[k])}`)).join('')}</div>`;
+  return `<div class="kvgrid">${kv('Indice di recupero', a.index == null ? '—' : `${a.index}/100`, delta == null ? `${a.n} check-in · confronto non disponibile · più alto = meglio` : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)} rispetto ai 7 giorni prima · più alto = meglio`)}${ITEMS.map(([k, label]) => kv(label, `${num(a[k])}/5`, `${WORSE_HIGH.has(k) ? 'più basso = meglio' : 'più alto = meglio'}${p[k] == null ? '' : ` · prima ${num(p[k])}`}`)).join('')}</div>`;
 }
 
 export function checkinList(d) {

@@ -75,7 +75,7 @@ jobs:
             "keep_vars": true,
             "assets": { "directory": "./public", "binding": "ASSETS" },
             "d1_databases": [ { "binding": "DB", "database_name": "${DB_NAME}", "database_id": "${id}", "migrations_dir": "migrations" } ],
-            "triggers": { "crons": ["17 4 * * *"] }
+            "triggers": { "crons": ["17 4 * * *", "47 18 * * *"] }
           }
           EOF
 
