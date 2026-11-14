@@ -46,6 +46,10 @@ export function createApp({ db, auth, assets, raw = null, ai = null, jobs = {}, 
           if (!jobs.fatsecretSync) throw new AppError(404, 'not_found');
           return json(200, await jobs.fatsecretSync());
         }
+        if (url.pathname === '/v1/sync/estimates' && request.method === 'POST') {
+          if (!jobs.estimatesSync) throw new AppError(404, 'not_found');
+          return json(200, await jobs.estimatesSync());
+        }
         if (url.pathname.startsWith('/v1/plan/') || url.pathname === '/v1/plan') return json(200, await planRoute(request, url, { db, subject, now, buildReport: jobs.phaseReport ?? buildPhaseReport }));
         if (url.pathname === '/v1/checkin') return json(200, await checkinRoute(request, url, { db, subject, now, readBody: readOwnerJson }));
         if (url.pathname.startsWith('/v1/ai/')) return json(200, await aiRoute(request, url, { db, subject, now, ai, readBody: readOwnerJson }));

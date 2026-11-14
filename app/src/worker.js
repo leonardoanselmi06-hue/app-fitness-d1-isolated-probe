@@ -5,6 +5,7 @@ import { createAuth } from './http/auth.js';
 import { runLyftaSync } from './jobs/lyfta-job.js';
 import { runPolarSync } from './jobs/polar-job.js';
 import { runFatSecretSync } from './jobs/fatsecret-job.js';
+import { runEstimatesImport } from './jobs/estimates-job.js';
 import { deviceIngest } from './http/device-ingest.js';
 import { makeRawStore } from './storage/drive-rawstore.js';
 import { fatsecretRoutes } from './http/fatsecret-routes.js';
@@ -17,16 +18,16 @@ export default {
   async fetch(request, env) {
     const auth = createAuth({ teamDomain: env.ACCESS_TEAM_DOMAIN, aud: env.ACCESS_AUD, ownerEmail: env.OWNER_EMAIL });
     const assets = env.ASSETS ? r => env.ASSETS.fetch(r) : undefined;
-    return createApp({ db: env.DB, auth, assets, raw: makeRawStore(env), ai: { config: aiConfig(env) }, jobs: { lyfta: () => runLyftaSync(env), polar: polarRoutes({ db: env.DB, env }), polarSync: () => runPolarSync(env), fatsecret: fatsecretRoutes({ db: env.DB, env }), fatsecretSync: () => runFatSecretSync(env), device: request => deviceIngest({ db: env.DB, raw: makeRawStore(env), enabled: env.DEVICE_INGEST_ENABLED === 'true' })(request) } })(request);
+    return createApp({ db: env.DB, auth, assets, raw: makeRawStore(env), ai: { config: aiConfig(env) }, jobs: { lyfta: () => runLyftaSync(env), polar: polarRoutes({ db: env.DB, env }), polarSync: () => runPolarSync(env), fatsecret: fatsecretRoutes({ db: env.DB, env }), fatsecretSync: () => runFatSecretSync(env), estimatesSync: () => runEstimatesImport(env), device: request => deviceIngest({ db: env.DB, raw: makeRawStore(env), enabled: env.DEVICE_INGEST_ENABLED === 'true' })(request) } })(request);
   },
   // Cron: sync automatico. Spento finché LYFTA_SYNC_ENABLED non è "true" (vedi lyfta-job.js).
   async scheduled(event, env, ctx) {
     // Controllo serale (EVENING_CRON): solo FatSecret, per i pasti inseriti durante il giorno. Il cron del mattino sincronizza tutto.
-    if (event?.cron === EVENING_CRON) { ctx.waitUntil(runFatSecretSync(env).catch(() => {})); return; }
+    if (event?.cron === EVENING_CRON) { ctx.waitUntil(Promise.all([runFatSecretSync(env), runEstimatesImport(env)]).catch(() => {})); return; }
     // Esito dell'ultimo cron in meta('cron_last'): solo codici, nessun dato né segreto. Serve a vedere che il cron gira davvero.
     const run = async (name, fn) => { try { const r = await fn(env); return [name, r?.ran === false ? { ran: false, reason: r.reason } : { ran: true, ok: r?.ok !== false, reason: r?.reason ?? null }]; } catch { return [name, { ran: true, ok: false, reason: 'exception' }]; } };
     ctx.waitUntil((async () => {
-      const res = Object.fromEntries(await Promise.all([run('lyfta', runLyftaSync), run('polar', runPolarSync), run('fatsecret', runFatSecretSync)]));
+      const res = Object.fromEntries(await Promise.all([run('lyfta', runLyftaSync), run('polar', runPolarSync), run('fatsecret', runFatSecretSync), run('estimates', runEstimatesImport)]));
       try { await env.DB.prepare("INSERT INTO meta (name, value) VALUES ('cron_last', ?) ON CONFLICT(name) DO UPDATE SET value = excluded.value").bind(JSON.stringify({ at: new Date().toISOString(), ...res })).run(); } catch { /* best effort */ }
     })());
   },
