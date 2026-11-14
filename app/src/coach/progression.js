@@ -80,8 +80,38 @@ function directOf(exp, today) {
   return { available: true, verdict: c.verdict, reasons: c.reasons, first, last, text: `${summaryText(first)} → ${summaryText(last)}`, trend: win.slice(-6) };
 }
 
-/** Esito per esercizio alla data `today`. */
+// ---- Indicatore principale (opzione B): ripetizioni a parità di carico. L'e1RM resta dato secondario (e ripiego se i dati a carico fisso non bastano). ----
+// Soglia di rumore: 1 ripetizione (la variabilità reale va ancora misurata: la soglia ±3 % dell'e1RM non si applica a questa metrica).
+export const FIXED_NOISE_REPS = 1;
+/** Carico di riferimento = carico più alto dell'ultima seduta nella finestra; punti = sedute con serie a quel carico (ripetizioni, + RIR se presente in tutte). */
+export function fixedLoadSeries(exp, today) {
+  const from = addDays(today, -WINDOW_DAYS), win = exp.exposures.filter(x => x.date > from && x.date <= today);
+  const last = win.at(-1), loads = last?.sets.map(s => s.load).filter(l => l != null) ?? [];
+  if (!loads.length) return null; // senza carico esterno la serie delle ripetizioni è già a carico fisso
+  const L = Math.max(...loads), points = [];
+  for (const x of win) {
+    const at = x.sets.filter(s => s.load != null && Math.abs(s.load - L) < TOL_KG);
+    if (!at.length) continue;
+    const useRir = at.every(s => s.rir != null);
+    points.push({ date: x.date, value: mean(at.map(s => s.reps + (useRir ? s.rir : 0))), rir_share: at.filter(s => s.rir != null).length / at.length });
+  }
+  return { load: L, points };
+}
+function fixedStatus(fx) {
+  const pts = fx?.points ?? [];
+  if (pts.length < MIN_EXPOSURES || daysBetween(pts[0].date, pts.at(-1).date) < MIN_SPAN_DAYS) return null;
+  const d = mean(pts.slice(-2).map(p => p.value)) - mean(pts.slice(0, 2).map(p => p.value));
+  return { status: d >= FIXED_NOISE_REPS ? 'in progresso' : d <= -FIXED_NOISE_REPS ? 'in calo' : 'ferma', change_reps: round(d, 1), load: fx.load, n: pts.length, last_value: round(pts.at(-1).value, 1) };
+}
+
+/** Esito per esercizio alla data `today`: stato a carico fisso se i dati bastano, altrimenti e1RM (basis lo dichiara). Confidenza mai "alta". */
 export function classifyExercise(exp, today) {
+  const r = classifyE1rm(exp, today), fx = seriesOf(exp).metric === 'reps' ? null : fixedStatus(fixedLoadSeries(exp, today));
+  const basis = r.metric === 'reps' ? 'fixed_load' : fx ? 'fixed_load' : 'e1rm';
+  if (r.status === 'insufficiente' && !fx) return { ...r, basis, fixed: null, confidence: 'bassa' };
+  return { ...r, basis, e1rm_status: r.status, fixed: fx, status: fx ? fx.status : r.status, reason: fx ? null : r.reason, confidence: 'bassa' }; // 1 solo soggetto e più variabili che cambiano: "alta" non ammessa
+}
+function classifyE1rm(exp, today) {
   const { metric, adjusted, points } = seriesOf(exp), from = addDays(today, -WINDOW_DAYS);
   const win = points.filter(p => p.date > from && p.date <= today), prior = points.filter(p => p.date <= from);
   const base = { direct: directOf(exp, today), name: exp.name, muscle: exp.muscle, metric, rir_used: adjusted, n_window: win.length, status: 'insufficiente', reason: null, pct_week: null, change_pct: null, last_value: win.at(-1)?.value ?? null, best_value: null, best_date: null, days_since_best: null, confidence: adjusted ? 'alta' : 'bassa' };
