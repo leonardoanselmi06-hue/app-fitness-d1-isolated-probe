@@ -8,6 +8,7 @@ import { compareView, bindCompare } from '/compare.js';
 import { aiView, bindAi } from '/ai.js';
 import { bindWeights } from '/weights-ui.js';
 import { estimatesBlock, bindEstimates } from '/estimates.js';
+import { cardioSummary, cardioWeeks, cardioSessions } from '/cardio.js';
 import { checkinForm, checkinSummary, checkinList, bindCheckin } from '/checkin.js';
 const $ = id => document.getElementById(id);
 const LABEL = { training: 'Allenamento', body: 'Composizione', nutrition: 'Alimentazione', activity: 'Attività', sleep: 'Sonno', cardio: 'Cardio', recovery: 'Recupero', program: 'Programma' };
@@ -95,6 +96,8 @@ const VIEWS = {
     render: d => [sleepSummary(d), sleepChart(d), sleepList(d)] },
   passi: { days: 30, path: '/v1/derived/steps', chips: 'stepsRange', ids: ['stepsSummary', 'stepsChart', 'stepsList'],
     render: d => [stepsSummary(d), stepsChart(d), stepsList(d)] },
+  cardio: { days: 8, path: '/v1/derived/cardio', ids: ['cardioSummary', 'cardioWeeks', 'cardioSessions'],
+    render: d => [cardioSummary(d), cardioWeeks(d), cardioSessions(d)] },
   coach: { path: '/v1/coach/review', ids: ['coachHeader', 'coachActions', 'coachInsights', 'coachTests'],
     render: d => [coachHeader(d), coachActions(d), coachInsights(d), coachTests(d)] },
   recupero: { path: '/v1/checkin?days=30', ids: ['ciFormBox', 'ciSummary', 'ciList'],
@@ -139,7 +142,7 @@ bindCheckin({ root: $('view-recupero'), reload: () => loadView('recupero') });
 bindPlan({ root: $('view-piano'), dialog: $('planDialog'), reload: () => loadView('piano') });
 
 // ---- Navigazione a schede (hash) ----
-const TABS = ['recupero', 'coach', 'piano', 'home', 'allenamenti', 'peso', 'alimentazione', 'sonno', 'passi'], loadedTabs = new Set();
+const TABS = ['recupero', 'coach', 'piano', 'home', 'allenamenti', 'peso', 'alimentazione', 'sonno', 'passi', 'cardio'], loadedTabs = new Set();
 function route() {
   const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'recupero'; // Recupero = schermata di apertura
   for (const v of document.querySelectorAll('.view')) v.hidden = v.dataset.view !== tab;

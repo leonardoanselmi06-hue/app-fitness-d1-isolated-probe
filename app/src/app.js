@@ -7,6 +7,7 @@ import { getGeneration, getOperation, listCanonical } from './ingest/ledger.js';
 import { summarize } from './analytics/summary.js';
 import { trainingView, weightView } from './analytics/views.js';
 import { nutritionView, sleepView, stepsView } from './analytics/daily-views.js';
+import { cardioView } from './analytics/cardio.js';
 import { coachReview } from './coach/review.js';
 import { planRoute } from './plan/routes.js';
 import { buildPhaseReport } from './plan/report.js';
@@ -69,7 +70,7 @@ export function createApp({ db, auth, assets, raw = null, ai = null, jobs = {}, 
         if (url.pathname === '/v1/derived/summary') return json(200, await summarize(db, subject));
         if (url.pathname === '/v1/derived/training') return json(200, await trainingView(db, subject, { limit: url.searchParams.get('limit'), offset: url.searchParams.get('offset') }));
         if (url.pathname === '/v1/derived/weight') return json(200, await weightView(db, subject, { days: url.searchParams.get('days'), now: now() }));
-        const daily = { '/v1/derived/nutrition': nutritionView, '/v1/derived/sleep': sleepView, '/v1/derived/steps': stepsView }[url.pathname];
+        const daily = { '/v1/derived/nutrition': nutritionView, '/v1/derived/sleep': sleepView, '/v1/derived/steps': stepsView, '/v1/derived/cardio': (d, sj, o) => cardioView(d, sj, { weeks: o.days, now: o.now }) }[url.pathname];
         if (daily) return json(200, await daily(db, subject, { days: url.searchParams.get('days'), now: now() }));
         if (url.pathname === '/v1/compare') return json(200, await comparePeriods(db, subject, { days: Number.parseInt(url.searchParams.get('days'), 10), now: now() }));
         if (url.pathname === '/v1/coach/review') return json(200, await coachReview(db, subject, { now: now() }));
