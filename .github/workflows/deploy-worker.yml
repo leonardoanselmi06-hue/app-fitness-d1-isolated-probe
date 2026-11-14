@@ -106,9 +106,11 @@ jobs:
           POLAR_CLIENT_SECRET: ${{ secrets.POLAR_CLIENT_SECRET }}
           FATSECRET_CONSUMER_KEY: ${{ secrets.FATSECRET_CONSUMER_KEY }}
           FATSECRET_CONSUMER_SECRET: ${{ secrets.FATSECRET_CONSUMER_SECRET }}
+          GOOGLE_SA_KEY: ${{ secrets.GOOGLE_SA_KEY }}
+          ESTIMATES_FOLDER_ID: ${{ secrets.ESTIMATES_FOLDER_ID }}
         run: |
           set -euo pipefail
-          for n in ACCESS_TEAM_DOMAIN ACCESS_AUD OWNER_EMAIL LYFTA_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_REFRESH_TOKEN POLAR_CLIENT_ID POLAR_CLIENT_SECRET FATSECRET_CONSUMER_KEY FATSECRET_CONSUMER_SECRET; do
+          for n in ACCESS_TEAM_DOMAIN ACCESS_AUD OWNER_EMAIL LYFTA_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_REFRESH_TOKEN POLAR_CLIENT_ID POLAR_CLIENT_SECRET FATSECRET_CONSUMER_KEY FATSECRET_CONSUMER_SECRET GOOGLE_SA_KEY ESTIMATES_FOLDER_ID; do
             v="${!n:-}"
             if [ -n "$v" ]; then printf '%s' "$v" | npx --no-install wrangler secret put "$n" -c wrangler.generated.jsonc >/dev/null && echo "impostato: $n"
             else echo "assente nel repo (saltato): $n"; fi
