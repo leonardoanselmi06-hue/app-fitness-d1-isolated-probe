@@ -15,6 +15,7 @@ import { readOwnerJson } from './core/body.js';
 import { weightsRoute } from './weights/exclusions.js';
 import { comparePeriods } from './compare/periods.js';
 import { aiRoute } from './ai/advice.js';
+import { estimatesRoute } from './nutrition/estimates.js';
 
 const json = (status, body, extra = {}) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', ...extra },
@@ -48,6 +49,7 @@ export function createApp({ db, auth, assets, raw = null, ai = null, jobs = {}, 
         if (url.pathname.startsWith('/v1/plan/') || url.pathname === '/v1/plan') return json(200, await planRoute(request, url, { db, subject, now, buildReport: jobs.phaseReport ?? buildPhaseReport }));
         if (url.pathname === '/v1/checkin') return json(200, await checkinRoute(request, url, { db, subject, now, readBody: readOwnerJson }));
         if (url.pathname.startsWith('/v1/ai/')) return json(200, await aiRoute(request, url, { db, subject, now, ai, readBody: readOwnerJson }));
+        if (url.pathname === '/v1/nutrition/estimates') return json(200, await estimatesRoute(request, url, { db, raw, subject, now, readBody: readOwnerJson }));
         if (url.pathname.startsWith('/v1/weights/')) return json(200, await weightsRoute(request, url, { db, raw, subject, now, readBody: readOwnerJson }));
         if (request.method !== 'GET') throw new AppError(405, 'method_not_allowed');
         const m = url.pathname.match(/^\/v1\/(canonical|operations)\/([A-Za-z0-9_.:-]{1,120})$/);

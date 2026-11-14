@@ -7,6 +7,7 @@ import { adherenceView } from '/plan-adherence.js';
 import { compareView, bindCompare } from '/compare.js';
 import { aiView, bindAi } from '/ai.js';
 import { bindWeights } from '/weights-ui.js';
+import { estimatesBlock, bindEstimates } from '/estimates.js';
 import { checkinForm, checkinSummary, checkinList, bindCheckin } from '/checkin.js';
 const $ = id => document.getElementById(id);
 const LABEL = { training: 'Allenamento', body: 'Composizione', nutrition: 'Alimentazione', activity: 'Attività', sleep: 'Sonno', cardio: 'Cardio', recovery: 'Recupero', program: 'Programma' };
@@ -88,8 +89,8 @@ $('trainMore').addEventListener('click', () => loadTraining());
 const VIEWS = {
   peso: { days: 90, path: '/v1/derived/weight', chips: 'weightRange', ids: ['weightSummary', 'weightChart', 'bodyFat', 'weightRecent'],
     render: d => [weightSummary(d), weightChart(d.daily), bodyFatBlock(d), weightRecent(d)] },
-  alimentazione: { days: 7, path: '/v1/derived/nutrition', chips: 'nutritionRange', ids: ['nutritionSummary', 'nutritionList'],
-    render: d => [nutritionSummary(d), nutritionDays(d)] },
+  alimentazione: { days: 7, path: '/v1/derived/nutrition', chips: 'nutritionRange', ids: ['nutritionSummary', 'nutritionList', 'nutritionEst'],
+    render: d => [nutritionSummary(d), nutritionDays(d), estimatesBlock(d)] },
   sonno: { days: 30, path: '/v1/derived/sleep', chips: 'sleepRange', ids: ['sleepSummary', 'sleepChart', 'sleepList'],
     render: d => [sleepSummary(d), sleepChart(d), sleepList(d)] },
   passi: { days: 30, path: '/v1/derived/steps', chips: 'stepsRange', ids: ['stepsSummary', 'stepsChart', 'stepsList'],
@@ -132,6 +133,7 @@ for (const [name, v] of Object.entries(VIEWS).filter(([, x]) => x.chips)) {
 
 bindCompare({ root: $('view-coach'), load: loadCompare });
 bindAi({ root: $('aiBox'), reload: loadAi });
+bindEstimates({ root: $('view-alimentazione'), reload: () => loadView('alimentazione') });
 bindWeights({ root: $('view-peso'), reload: () => loadView('peso') });
 bindCheckin({ root: $('view-recupero'), reload: () => loadView('recupero') });
 bindPlan({ root: $('view-piano'), dialog: $('planDialog'), reload: () => loadView('piano') });
