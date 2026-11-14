@@ -1,12 +1,13 @@
 // Sync FatSecret (diario alimentare, sola lettura). Ogni GIORNO è uno scope completo (`day:AAAA-MM-GG`): le voci tolte o modificate in
 // FatSecret si riflettono (tombstone) perché la completezza del giorno la stabilisce il server leggendo tutte le voci di quel giorno.
 // Per rispettare i limiti del Worker: 1-2 chiamate di totali mensili, poi il dettaglio solo dei giorni cambiati (calorie diverse da D1,
-// giorno assente in D1, o oggi/ieri), al massimo MAX_DAYS per esecuzione, dal più recente. I restanti si completano alle esecuzioni successive.
+// giorno assente in D1, o gli ultimi 3 giorni), al massimo MAX_DAYS per esecuzione, dal più recente. I restanti si completano alle esecuzioni successive.
 import { ingest } from '../../ingest/ledger.js';
 import { normalizeEntry, asArray, dateFromInt, intFromDate } from './normalize.js';
 import { num } from '../lyfta/normalize.js';
 
 export const MAX_DAYS = 8;
+export const REREAD_DAYS = 3; // oggi + 2 giorni precedenti: riletti ad ogni sync (pasti inseriti/modificati in ritardo)
 const addDays = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
 async function storedDays(db, subject, from) {
@@ -30,7 +31,7 @@ export async function syncFatSecret({ db, raw, now = () => new Date().toISOStrin
   const stored = await storedDays(db, subject, from);
   // 2) giorni da (ri)leggere
   const todo = new Set();
-  for (const [d, kcal] of totals) if (d >= from && (d >= addDays(today, -1) || !stored.has(d) || Math.abs((stored.get(d) ?? 0) - (kcal ?? 0)) > 0.5)) todo.add(d);
+  for (const [d, kcal] of totals) if (d >= from && (d > addDays(today, -REREAD_DAYS) || !stored.has(d) || Math.abs((stored.get(d) ?? 0) - (kcal ?? 0)) > 0.5)) todo.add(d);
   for (const d of stored.keys()) if (!totals.has(d)) todo.add(d); // giorno svuotato in FatSecret: va riletto per applicare i tombstone
   const ordered = [...todo].sort().reverse();
   let processed = 0, entries = 0;

@@ -96,8 +96,8 @@ const VIEWS = {
     render: d => [stepsSummary(d), stepsChart(d), stepsList(d)] },
   coach: { path: '/v1/coach/review', ids: ['coachHeader', 'coachActions', 'coachInsights', 'coachTests'],
     render: d => [coachHeader(d), coachActions(d), coachInsights(d), coachTests(d)] },
-  recupero: { path: '/v1/checkin?days=30', ids: ['ciSummary', 'ciFormBox', 'ciList'],
-    render: d => [checkinSummary(d), checkinForm(d), checkinList(d)] },
+  recupero: { path: '/v1/checkin?days=30', ids: ['ciFormBox', 'ciSummary', 'ciList'],
+    render: d => [checkinForm(d), checkinSummary(d), checkinList(d)] },
   piano: { path: '/v1/plan', ids: ['planHeader', 'planScheda', 'planAdherence', 'planNotes', 'planPhases'],
     render: d => { setPlan(d); return [planHeader(d), planScheda(d), '', planNotes(d), planPhases(d)]; } },
 };
@@ -137,9 +137,9 @@ bindCheckin({ root: $('view-recupero'), reload: () => loadView('recupero') });
 bindPlan({ root: $('view-piano'), dialog: $('planDialog'), reload: () => loadView('piano') });
 
 // ---- Navigazione a schede (hash) ----
-const TABS = ['home', 'allenamenti', 'peso', 'alimentazione', 'sonno', 'passi', 'coach', 'recupero', 'piano'], loadedTabs = new Set();
+const TABS = ['recupero', 'coach', 'piano', 'home', 'allenamenti', 'peso', 'alimentazione', 'sonno', 'passi'], loadedTabs = new Set();
 function route() {
-  const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
+  const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'recupero'; // Recupero = schermata di apertura
   for (const v of document.querySelectorAll('.view')) v.hidden = v.dataset.view !== tab;
   for (const a of document.querySelectorAll('.tabs a')) { if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
   if (tab !== 'home' && !loadedTabs.has(tab)) { loadedTabs.add(tab); if (tab === 'allenamenti') loadTraining(true); else loadView(tab); }
