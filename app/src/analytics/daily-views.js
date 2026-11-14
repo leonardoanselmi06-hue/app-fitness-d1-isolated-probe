@@ -27,7 +27,7 @@ export async function nutritionView(db, subject, { days, now = new Date() } = {}
   const span = clampInt(days, NUTRITION_DAYS.def, NUTRITION_DAYS.min, NUTRITION_DAYS.max);
   const today = localDate(now.toISOString(), TZ), from = addDays(today, -(span - 1));
   const { results } = await db.prepare(
-    `SELECT record_id, payload_json FROM current_records WHERE subject_id = ? AND domain = 'nutrition' AND deleted = 0
+    `SELECT record_id, payload_json FROM current_records WHERE subject_id = ? AND domain = 'nutrition' AND deleted = 0 AND source_system <> 'chatgpt_estimate'
        AND json_extract(payload_json, '$.local_date') >= ? AND json_extract(payload_json, '$.local_date') <= ?
      ORDER BY json_extract(payload_json, '$.local_date') DESC, record_id ASC`
   ).bind(subject, from, today).all();
@@ -58,12 +58,14 @@ export async function nutritionView(db, subject, { days, now = new Date() } = {}
   const complete = by_day.filter(d => d.completeness.complete === true); // medie SOLO sui giorni completi (regola pasti)
   const avg = k => { const xs = complete.map(d => d.totals[k]).filter(x => x != null); return { value: round(mean(xs), k === 'calories' ? 0 : 1), n: xs.length }; };
   const logged = new Set(by_day.map(d => d.date));
+  const est = await db.prepare(`SELECT record_id, payload_json FROM current_records WHERE subject_id = ? AND domain = 'nutrition' AND deleted = 0 AND source_system = 'chatgpt_estimate' AND json_extract(payload_json, '$.local_date') >= ? AND json_extract(payload_json, '$.local_date') <= ? ORDER BY json_extract(payload_json, '$.local_date') DESC, record_id ASC`).bind(subject, from, today).all();
+  const estimates = (est.results ?? []).map(r => { const p = JSON.parse(r.payload_json); return { id: r.record_id.replace(/^meal:/, ''), date: p.local_date, meal: p.meal ?? 'Other', name: p.name ?? null, description: p.description ?? null, nutrients: p.nutrients ?? {}, uncertainty_pct: p.uncertainty_pct ?? null }; }); // stime: SEPARATE da FatSecret, mai nei totali né nelle medie
   return {
     generation: await getGeneration(db), window_days: span, from, to: today, today,
     averages: { calories: avg('calories'), protein: avg('protein'), carbohydrate: avg('carbohydrate'), fat: avg('fat') },
     complete_days: complete.length, incomplete_days: by_day.filter(d => d.completeness.complete === false).length,
     empty_days: calendarDays(from, addDays(today, -1)).filter(d => !logged.has(d)).length, // giorni passati senza alcuna voce: mancanti, non zero
-    by_day,
+    by_day, estimates,
   };
 }
 
